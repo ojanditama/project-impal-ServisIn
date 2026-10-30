@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  MECHANIC
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+  REJECTED
+}
+
+enum SubscriptionTier {
+  REGULAR
+  VIP
+}
+
+enum OrderStatus {
+  PENDING
+  DISPATCHED
+  ACCEPTED
+  ARRIVED
+  DIAGNOSING
+  IN_PROGRESS
+  COMPLETED
+  PAID
+  CANCELLED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_REFUND
+  RESOLVED_REVISIT
+  REJECTED
+}
+
+model User {
+  id            String           @id @default(uuid())
+  name          String
+  phone         String           @unique
+  email         String           @unique
+  passwordHash  String
+  role          Role             @default(CUSTOMER)
+  status        UserStatus       @default(ACTIVE)
+  tier          SubscriptionTier @default(REGULAR)
+  avatarUrl     String?
+  rating        Float            @default(4.9)
+  bnspCertified Boolean          @default(false)
+  
+  // Relations
+  vehicles      Vehicle[]
+  ordersAsCust  ServiceOrder[]   @relation("CustomerOrders")
+  ordersAsMech  ServiceOrder[]   @relation("MechanicOrders")
+  subscription  PremiumSubscription?
+  aiQueries     AIChatbotQuery[]
+  disputes      DisputeTicket[]
+  mechanicProfile MechanicProfile?
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([role, status])
+}
+
+model MechanicProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ktpNumber       String
+  simNumber       String?
+  bnspCertNumber  String
+  workshopName    String?
+  currentLat      Float?
+  currentLng      Float?
+  isOnline        Boolean  @default(false)
+  walletBalance   Float    @default(0)
+  escrowBalance   Float    @default(0)
+  bankAccount     String?
+  bankName        String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Vehicle {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand           String
+  model           String
+  year            Int
+  licensePlate    String         @unique
+  color           String?
+  isActive        Boolean        @default(false)
+  odometerKm      Int            @default(0)
+  healthPercent   Int            @default(95)
+  imageUrl        String?
+  lastServiceDate DateTime?
+
+  orders          ServiceOrder[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([userId, isActive])
+}
+
+model ServiceOrder {
+  id              String         @id @default(cuid())
+  orderNumber     String         @unique // e.g. SRV-8942
+  customerId      String
+  customer        User           @relation("CustomerOrders", fields: [customerId], references: [id])
+  mechanicId      String?
+  mechanic        User?          @relation("MechanicOrders", fields: [mechanicId], references: [id])
+  vehicleId       String
+  vehicle         Vehicle        @relation(fields: [vehicleId], references: [id])
+  
+  serviceType     String
+  status          OrderStatus    @default(PENDING)
+  totalCost       Float
+  isEmergency     Boolean        @default(false)
+  isVIP           Boolean        @default(false)
+
+  // Geospatial coordinate attributes (PostGIS compatibility)
+  pickupLat       Float
+  pickupLng       Float
+  pickupAddress   String
+  accessNotes     String?
+  
+  itemsJson       Json?          // Bundling spareparts / fees
+  diagnosticNotes String?
+  spidoPhotoUrl   String?
+  
+  payment         PaymentTransaction?
+  dispute         DisputeTicket?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status, mechanicId])
+  @@index([pickupLat, pickupLng])
+}
+
+model PaymentTransaction {
+  id              String       @id @default(uuid())
+  orderId         String       @unique
+  order           ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount          Float
+  method          String       // WALLET, QRIS, VA, CREDIT_CARD
+  midtransSnapToken String?
+  vaNumber        String?
+  qrisUrl         String?
+  status          String       // PENDING, SETTLEMENT, EXPIRE, CANCEL
+  settledAt       DateTime?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model PremiumSubscription {
+  id           String           @id @default(uuid())
+  userId       String           @unique
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planType     String           @default("ANNUAL") // MONTHLY or ANNUAL
+  warrantyDays Int              @default(30)
+  startDate    DateTime         @default(now())
+  endDate      DateTime
+  isActive     Boolean          @default(true)
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model AIChatbotQuery {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  queryText      String
+  responseText   String
+  accuracyScore  Int?
+  suggestedFault String?
+  estimatedCost  String?
+
+  createdAt      DateTime @default(now())
+}
+
+model DisputeTicket {
+  id             String        @id @default(cuid()) // e.g. DSP-1002
+  orderId        String        @unique
+  order          ServiceOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       User          @relation(fields: [customerId], references: [id])
+  complaintText  String
+  status         DisputeStatus @default(OPEN)
+  resolutionNote String?
+  resolvedAt     DateTime?
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
