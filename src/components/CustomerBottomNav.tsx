@@ -13,7 +13,7 @@ export default function CustomerBottomNav() {
   const isProfile = pathname.startsWith("/premium") || pathname.startsWith("/profile");
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 bg-surface/90 backdrop-blur-xl border-t border-surface-container-high/60 h-16 flex items-center justify-around px-2 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 md:hidden bg-surface/90 backdrop-blur-xl border-t border-surface-container-high/60 h-16 flex items-center justify-around px-2 shadow-lg">
       <Link
         href="/dashboard"
         className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${

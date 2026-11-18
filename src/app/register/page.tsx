@@ -8,32 +8,39 @@ import { AuthController } from "@/controllers/AuthController";
 export default function RegisterPage() {
   const router = useRouter();
   const [role, setRole] = useState<"Customer" | "Mechanic">("Customer");
-  const [name, setName] = useState("Budi Pratama");
-  const [phone, setPhone] = useState("81298453210");
-  const [email, setEmail] = useState("budi.pratama@email.com");
+  const [name, setName] = useState("Fauzan Pratama");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [vehicleType, setVehicleType] = useState("Mobil (MPV, SUV, Sedan, City Car)");
   const [mechanicSpec, setMechanicSpec] = useState("Mekanik Mobil BNSP Level III / IV");
   const [ktpNumber, setKtpNumber] = useState("3174092801900002");
-  const [password, setPassword] = useState("rahasia12345");
-  const [confirmPassword, setConfirmPassword] = useState("rahasia12345");
+  const [password, setPassword] = useState("rahasia123");
+  const [confirmPassword, setConfirmPassword] = useState("rahasia123");
   const [showPassword, setShowPassword] = useState(false);
   const [promoExpanded, setPromoExpanded] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [lang, setLang] = useState<"ID" | "EN">("ID");
 
-  // OTP Verification Modal state
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpCode, setOtpCode] = useState(["8", "8", "9", "9"]);
-  const [otpTimer, setOtpTimer] = useState(45);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  // Autofill random test user that won't conflict with Supabase
+  const handleAutoFillTest = () => {
+    const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
+    const generatedPhone = "81" + randomSuffix.toString().slice(0, 9);
+    setName(role === "Customer" ? "Fauzan Pelanggan Baru" : "Fauzan Mekanik Mitra");
+    setPhone(generatedPhone);
+    setEmail(`user_${randomSuffix}@servisin.id`);
+    setPassword("rahasia123");
+    setConfirmPassword("rahasia123");
+    setError("");
+  };
 
   // Mechanic Pending Modal state
   const [showMechanicPendingModal, setShowMechanicPendingModal] = useState(false);
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreeTerms) {
       setError("Silakan setujui Syarat & Ketentuan dan Kebijakan Privasi.");
@@ -43,45 +50,49 @@ export default function RegisterPage() {
       setError("Konfirmasi kata sandi tidak cocok.");
       return;
     }
+    if (password.length < 6) {
+      setError("Kata sandi minimal 6 karakter.");
+      return;
+    }
+    if (!phone) {
+      setError("Nomor WhatsApp / telepon wajib diisi.");
+      return;
+    }
 
     setLoading(true);
     setError("");
+    setSuccessMsg("");
 
-    // Simulate OTP sent to WhatsApp
-    setTimeout(() => {
-      setLoading(false);
-      setShowOtpModal(true);
-    }, 600);
-  };
-
-  const handleConfirmOtp = () => {
-    setVerifyingOtp(true);
-
-    setTimeout(() => {
-      const fullPhone = "0" + phone.replace(/^0+/, "");
-      const res = AuthController.handleRegister({
+    try {
+      const cleanDigits = phone.replace(/[^0-9]/g, "");
+      const fullPhone = cleanDigits.startsWith("0") ? cleanDigits : "0" + cleanDigits;
+      const res = await AuthController.handleRegister({
         name,
         phone: fullPhone,
-        email,
+        email: email || `${fullPhone}@servisin.id`,
         password,
         role: role === "Customer" ? "Customer" : "Mechanic",
+        ktpNumber,
       });
 
-      setVerifyingOtp(false);
-      setShowOtpModal(false);
+      setLoading(false);
 
       if (res.success) {
-        if (role === "Customer") {
-          // Redirect to login with prefilled success or dashboard
-          router.push(`/login?registered=1&role=Customer&identifier=${encodeURIComponent(fullPhone)}`);
-        } else {
-          // Show Mechanic Pending Verification alert
-          setShowMechanicPendingModal(true);
-        }
+        setSuccessMsg(res.message);
+        setTimeout(() => {
+          if (role === "Customer") {
+            router.push(`/login?registered=1&role=Customer&identifier=${encodeURIComponent(fullPhone)}`);
+          } else {
+            setShowMechanicPendingModal(true);
+          }
+        }, 1200);
       } else {
         setError(res.message);
       }
-    }, 700);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || "Gagal melakukan pendaftaran ke database Supabase.");
+    }
   };
 
   return (
@@ -187,8 +198,32 @@ export default function RegisterPage() {
         </button>
       </div>
 
+      {/* Quick Test Autofill Bar */}
+      <div className="mt-3 flex items-center justify-between p-2.5 bg-primary-fixed/50 rounded-2xl border border-primary/20">
+        <div className="flex items-center gap-2 text-xs text-on-primary-fixed font-semibold">
+          <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
+            bolt
+          </span>
+          <span>Mau uji daftar user baru?</span>
+        </div>
+        <button
+          type="button"
+          onClick={handleAutoFillTest}
+          className="px-3 py-1 bg-primary text-on-primary rounded-xl text-xs font-bold hover:brightness-110 active:scale-95 transition-all shadow-sm flex items-center gap-1"
+        >
+          <span>Isi Data Tes Otomatis</span>
+        </button>
+      </div>
+
       {/* Registration Form */}
       <form onSubmit={handleRegisterSubmit} className="mt-4 flex flex-col gap-3.5 pb-8">
+        {successMsg && (
+          <div className="p-3.5 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed text-body-sm flex items-center gap-2 border border-tertiary shadow-sm">
+            <span className="material-symbols-outlined text-tertiary">check_circle</span>
+            <span className="font-bold">{successMsg}</span>
+          </div>
+        )}
+
         {error && (
           <div className="p-3 rounded-xl bg-error-container text-on-error-container text-body-sm flex items-center gap-2">
             <span className="material-symbols-outlined text-error">error</span>
@@ -502,10 +537,13 @@ export default function RegisterPage() {
           className="w-full h-12 rounded-xl bg-primary-container text-on-primary font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-[0.99] transition-all disabled:opacity-70 mt-2"
         >
           {loading ? (
-            <div className="w-5 h-5 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></div>
+              <span>Mendaftarkan ke Database Supabase...</span>
+            </div>
           ) : (
             <>
-              <span>Daftar &amp; Kirim Kode OTP</span>
+              <span>Daftar Akun ke Supabase</span>
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
                 arrow_forward
               </span>
@@ -569,70 +607,6 @@ export default function RegisterPage() {
           <span>Enkripsi 256-bit • Jaminan Privasi Data Aman</span>
         </div>
       </form>
-
-      {/* OTP Verification Modal */}
-      {showOtpModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container-lowest max-w-sm w-full rounded-3xl p-6 text-center shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95">
-            <div className="w-14 h-14 rounded-2xl bg-primary-fixed text-primary-container flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined" style={{ fontSize: 32 }}>
-                sms
-              </span>
-            </div>
-
-            <div>
-              <h3 className="font-headline-md text-headline-md font-bold text-on-surface">
-                Verifikasi Kode OTP
-              </h3>
-              <p className="font-body-sm text-xs text-on-surface-variant mt-1 leading-snug">
-                Kode verifikasi instan 4-digit telah dikirimkan ke nomor WhatsApp{" "}
-                <strong className="text-on-surface">+62 {phone}</strong>
-              </p>
-            </div>
-
-            {/* OTP input boxes */}
-            <div className="flex justify-center gap-3 my-1">
-              {otpCode.map((digit, idx) => (
-                <input
-                  key={idx}
-                  type="text"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => {
-                    const newOtp = [...otpCode];
-                    newOtp[idx] = e.target.value;
-                    setOtpCode(newOtp);
-                  }}
-                  className="w-12 h-14 rounded-xl bg-surface-container-low text-center text-xl font-bold font-mono text-on-surface border-2 border-primary-container/40 focus:border-primary-container focus:outline-none"
-                />
-              ))}
-            </div>
-
-            <span className="text-[11px] text-on-surface-variant">
-              Kirim ulang kode dalam <strong className="text-primary">{otpTimer}s</strong>
-            </span>
-
-            <button
-              onClick={handleConfirmOtp}
-              disabled={verifyingOtp}
-              className="w-full h-12 rounded-xl bg-primary-container text-on-primary font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-95 transition-all disabled:opacity-70"
-            >
-              {verifyingOtp ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <span>Verifikasi &amp; Lanjutkan</span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setShowOtpModal(false)}
-              className="text-xs text-on-surface-variant hover:text-on-surface"
-            >
-              Ubah Nomor Telepon
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Mechanic Pending Verification Modal */}
       {showMechanicPendingModal && (

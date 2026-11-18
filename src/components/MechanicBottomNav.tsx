@@ -30,7 +30,7 @@ export default function MechanicBottomNav() {
       </Link>
 
       <Link
-        href="/mechanic/navigation"
+        href="/mechanic/orders"
         className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
           isOrders ? "text-primary-container font-semibold" : "text-on-surface-variant hover:text-on-surface"
         }`}
@@ -75,7 +75,7 @@ export default function MechanicBottomNav() {
       </Link>
 
       <Link
-        href="/login"
+        href="/mechanic/profile"
         className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
           isProfile ? "text-primary-container font-semibold" : "text-on-surface-variant hover:text-on-surface"
         }`}

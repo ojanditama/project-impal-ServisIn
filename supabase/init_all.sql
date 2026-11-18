@@ -358,7 +358,63 @@ insert into public."DisputeTicket" (
 )
 on conflict (id) do nothing;
 
--- Verification (should return 8 tables and 3 users)
+-- ------------------------------------------------------------
+-- Wallet
+-- ------------------------------------------------------------
+create table if not exists public."Wallet" (
+  id             text primary key default gen_random_uuid()::text,
+  "userId"       text not null unique references public."User"(id) on delete cascade,
+  balance        double precision not null default 650000,
+  pin            text not null default '123456',
+  "createdAt"    timestamptz not null default now(),
+  "updatedAt"    timestamptz not null default now()
+);
+
+drop trigger if exists "Wallet_set_updated_at" on public."Wallet";
+create trigger "Wallet_set_updated_at"
+  before update on public."Wallet"
+  for each row execute function public.set_updated_at();
+
+-- ------------------------------------------------------------
+-- WalletTransaction
+-- ------------------------------------------------------------
+create table if not exists public."WalletTransaction" (
+  id             text primary key default gen_random_uuid()::text,
+  "userId"       text not null references public."User"(id) on delete cascade,
+  type           text not null, -- 'TOPUP' | 'PAYMENT' | 'TRANSFER'
+  amount         double precision not null,
+  description    text not null,
+  method         text,
+  "orderId"      text references public."ServiceOrder"(id) on delete set null,
+  "createdAt"    timestamptz not null default now()
+);
+
+create index if not exists "WalletTransaction_userId_idx" on public."WalletTransaction" ("userId", "createdAt" desc);
+
+-- Privileges & RLS
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public."Wallet", public."WalletTransaction" to anon, authenticated;
+
+alter table public."Wallet"            enable row level security;
+alter table public."WalletTransaction" enable row level security;
+
+drop policy if exists "demo_wallet_access" on public."Wallet";
+create policy "demo_wallet_access" on public."Wallet"
+  for all to anon, authenticated using (true) with check (true);
+
+drop policy if exists "demo_wallet_tx_access" on public."WalletTransaction";
+create policy "demo_wallet_tx_access" on public."WalletTransaction"
+  for all to anon, authenticated using (true) with check (true);
+
+insert into public."Wallet" (id, "userId", balance, pin)
+values ('wal-cst-001', 'usr-cst-001', 650000, '123456')
+on conflict ("userId") do nothing;
+
+insert into public."WalletTransaction" (id, "userId", type, amount, description, method)
+values ('wal-tx-init-001', 'usr-cst-001', 'TOPUP', 650000, 'Saldo Awal ServisIn Wallet', 'BCA Virtual Account')
+on conflict (id) do nothing;
+
+-- Verification (should return 10 tables and 3 users)
 select 'OK' as status,
        (select count(*) from information_schema.tables
         where table_schema = 'public' and table_type = 'BASE TABLE') as table_count,

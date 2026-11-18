@@ -4,7 +4,7 @@ import { AuthController } from "@/controllers/AuthController";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const result = AuthController.handleRegister({
+    const result = await AuthController.handleRegister({
       name: body.name,
       phone: body.phone,
       email: body.email,

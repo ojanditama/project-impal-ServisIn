@@ -5,12 +5,94 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MechanicBottomNav from "@/components/MechanicBottomNav";
 import { dbStore } from "@/lib/store";
+import { SupabaseService } from "@/lib/supabase";
+import { ServiceOrder } from "@/models/ServiceOrder";
 
 export default function MechanicDashboardPage() {
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
-  const [countdown, setCountdown] = useState(24);
-  const [hasIncoming, setHasIncoming] = useState(true);
+  const [countdown, setCountdown] = useState(30);
+  const [hasIncoming, setHasIncoming] = useState(false);
+  const [activeOrder, setActiveOrder] = useState<any>(null);
+
+  const checkIncomingOrders = () => {
+    const orders = dbStore.getOrders();
+    // Prioritize active incoming dispatch requests (Dispatched / Pending)
+    const incoming = orders.find(
+      (o) => o.status === "Dispatched" || o.status === "Pending"
+    );
+
+    if (incoming) {
+      if (!activeOrder || activeOrder.id !== incoming.id) {
+        setActiveOrder(incoming);
+        setHasIncoming(true);
+        setCountdown(30);
+      }
+    } else {
+      // If there are no pending dispatches, check if there's an ongoing accepted order
+      const ongoing = orders.find(
+        (o) => o.status === "Accepted" || o.status === "Arrived" || o.status === "InProgress"
+      );
+      if (ongoing) {
+        setActiveOrder(ongoing);
+        // Do not force dispatch alert popup for already accepted orders, but keep activeOrder reference
+      }
+    }
+  };
+
+  useEffect(() => {
+    // 1. Initial check
+    checkIncomingOrders();
+
+    // 2. Poll every 2.5s for new incoming orders from customer
+    const interval = setInterval(() => {
+      checkIncomingOrders();
+
+      // Sync latest orders from Supabase in background
+      SupabaseService.getOrders()
+        .then((sbOrders) => {
+          if (Array.isArray(sbOrders) && sbOrders.length > 0) {
+            sbOrders.forEach((so) => {
+              dbStore.addOrder(
+                new ServiceOrder({
+                  id: so.id,
+                  customerId: so.customerId,
+                  mechanicId: so.mechanicId,
+                  vehicleId: so.vehicleId,
+                  serviceType: so.serviceType,
+                  status: so.status,
+                  totalCost: so.totalCost,
+                  isEmergency: so.isEmergency,
+                  isVIP: so.isVIP,
+                  locationCoord: {
+                    lat: so.pickupLat,
+                    lng: so.pickupLng,
+                    address: so.pickupAddress,
+                  },
+                  items: so.itemsJson || [],
+                  notes: so.diagnosticNotes || "",
+                })
+              );
+            });
+            checkIncomingOrders();
+          }
+        })
+        .catch(() => {});
+    }, 2500);
+
+    // 3. Instant cross-tab storage listener
+    const onStorage = (e: StorageEvent) => {
+      if (e.key?.includes("servisin")) {
+        checkIncomingOrders();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [activeOrder?.id]);
 
   useEffect(() => {
     if (!hasIncoming || countdown <= 0) return;
@@ -21,12 +103,30 @@ export default function MechanicDashboardPage() {
   }, [hasIncoming, countdown]);
 
   const handleAcceptOrder = () => {
-    router.push("/mechanic/navigation");
+    if (activeOrder) {
+      dbStore.updateOrderStatus(activeOrder.id, "Accepted");
+      SupabaseService.updateOrderStatus(activeOrder.id, "ACCEPTED").catch(() => {});
+      router.push(`/mechanic/navigation?id=${activeOrder.id}`);
+    } else {
+      router.push("/mechanic/navigation");
+    }
   };
 
   const handleDeclineOrder = () => {
+    if (activeOrder) {
+      dbStore.updateOrderStatus(activeOrder.id, "Cancelled");
+      SupabaseService.updateOrderStatus(activeOrder.id, "CANCELLED").catch(() => {});
+    }
     setHasIncoming(false);
   };
+
+  const customer = activeOrder
+    ? dbStore.users.find((u) => u.id === activeOrder.customerId) || dbStore.users[0]
+    : dbStore.users[0];
+
+  const vehicle = activeOrder
+    ? dbStore.vehicles.find((v) => v.id === activeOrder.vehicleId) || dbStore.vehicles[0]
+    : dbStore.vehicles[0];
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col pb-20 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
@@ -63,7 +163,7 @@ export default function MechanicDashboardPage() {
               light_mode
             </span>
           </button>
-          <Link href="/mechanic/wallet" className="relative">
+          <Link href="/mechanic/profile" className="relative">
             <img
               src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=120&h=120&q=80"
               alt="Mekanik"
@@ -131,15 +231,15 @@ export default function MechanicDashboardPage() {
         )}
 
         {/* Incoming Emergency Dispatch Card */}
-        {isOnline && hasIncoming && (
+        {isOnline && hasIncoming && activeOrder && (
           <div className="bg-surface-container-lowest rounded-2xl border-2 border-primary-container shadow-xl overflow-hidden flex flex-col animate-in zoom-in-95">
             {/* Top countdown bar */}
             <div className="bg-primary-container text-on-primary px-4 py-2 flex items-center justify-between font-bold text-xs">
               <span className="flex items-center gap-1.5 uppercase tracking-wider">
                 <span className="material-symbols-outlined animate-pulse" style={{ fontSize: 18 }}>
-                  emergency
+                  {activeOrder.isEmergency ? "emergency" : "assignment"}
                 </span>
-                PANGGILAN DARURAT MASUK!
+                {activeOrder.isEmergency ? "PANGGILAN DARURAT MASUK!" : "PESANAN SERVIS BARU MASUK!"}
               </span>
               <span className="px-2 py-0.5 rounded-full bg-black/30 backdrop-blur-md">
                 ⏱ {countdown}s
@@ -151,24 +251,24 @@ export default function MechanicDashboardPage() {
                 <div>
                   <span className="px-2 py-0.5 rounded-full bg-primary-fixed text-primary font-bold text-[10px] flex items-center gap-1 w-fit">
                     <span className="material-symbols-outlined" style={{ fontSize: 12 }}>
-                      bolt
+                      {activeOrder.isEmergency ? "bolt" : "build"}
                     </span>
-                    AKI SOAK / MOGOK TOTAL
+                    {activeOrder.serviceType.toUpperCase()}
                   </span>
                   <h3 className="font-headline-sm text-headline-sm font-bold text-on-surface mt-1">
-                    Toyota Innova Reborn
+                    {vehicle.brand} {vehicle.model}
                   </h3>
                 </div>
 
                 <div className="text-right">
                   <span className="text-[10px] text-on-surface-variant block font-medium">
-                    Penghasilan Bersih
+                    Total Biaya Servis
                   </span>
                   <span className="font-headline-sm text-headline-sm font-bold text-tertiary">
-                    Rp 165.000
+                    Rp {activeOrder.totalCost.toLocaleString("id-ID")}
                   </span>
                   <span className="text-[10px] text-primary-container font-bold block">
-                    + Tip Darurat Rp 25k
+                    Order #{activeOrder.id}
                   </span>
                 </div>
               </div>
@@ -183,17 +283,17 @@ export default function MechanicDashboardPage() {
                   </div>
                   <div>
                     <span className="font-label-md text-label-md font-bold text-on-surface block">
-                      Ibu Farida Ananda
+                      {customer.name}
                     </span>
                     <span className="text-[11px] text-on-surface-variant font-mono">
-                      B 2045 SKL • Silver Metallic
+                      {vehicle.licensePlate} • {vehicle.color || "Standar"}
                     </span>
                   </div>
                 </div>
 
                 <a
-                  href="tel:081298453210"
-                  className="w-9 h-9 rounded-xl bg-surface-container-lowest flex items-center justify-center text-secondary shadow-sm"
+                  href={`tel:${customer.phone}`}
+                  className="w-9 h-9 rounded-xl bg-surface-container-lowest flex items-center justify-center text-secondary shadow-sm hover:scale-105"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
                     call
@@ -209,14 +309,14 @@ export default function MechanicDashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-label-md text-label-md font-bold text-on-surface">
-                      Jl. Gatot Subroto No. 88
+                      Lokasi Kedatangan
                     </span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-secondary-fixed text-secondary font-bold">
-                      1.4 km • 5 mnt
+                      ± 1.4 km • 7 mnt
                     </span>
                   </div>
                   <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">
-                    Bahu jalan tol sebelum flyover Semanggi arah Kuningan.
+                    {activeOrder.locationCoord.address}
                   </p>
                 </div>
               </div>
@@ -224,10 +324,10 @@ export default function MechanicDashboardPage() {
               {/* Keluhan */}
               <div className="bg-surface-container-low rounded-xl p-3 flex items-start gap-2.5">
                 <span className="material-symbols-outlined text-error flex-shrink-0" style={{ fontSize: 20 }}>
-                  warning
+                  assignment
                 </span>
                 <p className="text-[11px] text-on-surface-variant leading-snug">
-                  <strong className="text-on-surface">Keluhan:</strong> &ldquo;Mesin mogok tidak mau distarter di bahu jalan, indikator aki merah menyala. Perlu jumper aki darurat atau siap aki baru 55Ah.&rdquo;
+                  <strong className="text-on-surface">Catatan Gejala:</strong> &ldquo;{activeOrder.notes || "Pemeriksaan dan servis berkala kendaraan sesuai SOP ServisIn."}&rdquo;
                 </p>
               </div>
 

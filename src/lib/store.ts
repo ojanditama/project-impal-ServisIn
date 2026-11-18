@@ -3,6 +3,7 @@ import { Vehicle } from "@/models/Vehicle";
 import { ServiceOrder } from "@/models/ServiceOrder";
 import { PremiumSubscription } from "@/models/PremiumSubscription";
 import { DisputeTicket } from "@/models/DisputeTicket";
+import { SupabaseService } from "@/lib/supabase";
 
 // Initial Demo Seed Data
 const initialUsers: User[] = [
@@ -130,7 +131,7 @@ export interface CustomerWalletData {
   history: WalletTransaction[];
 }
 
-// In-Memory Global Storage (persists per runtime)
+// Global In-Memory and Persisted Storage
 class ServisInDataStore {
   public users: User[] = [...initialUsers];
   public vehicles: Vehicle[] = [...initialVehicles];
@@ -146,6 +147,220 @@ class ServisInDataStore {
   public disputes: DisputeTicket[] = [...initialDisputes];
   public mechanicOnline: boolean = true;
   public mechanicLocation = { lat: -6.215, lng: 106.832, address: "Jl. Gatot Subroto" };
+
+  // =========================================================================
+  // USER PERSISTENCE & HELPERS
+  // =========================================================================
+  public getUsers(): User[] {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("servisin_users");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((u: any) => new User(u));
+          }
+        }
+      } catch (e) {
+        console.error("Error reading servisin_users:", e);
+      }
+    }
+    return this.users;
+  }
+
+  public addUser(user: User): void {
+    const list = this.getUsers();
+    const existingIndex = list.findIndex((u) => u.id === user.id || u.phone === user.phone);
+    if (existingIndex >= 0) {
+      list[existingIndex] = user;
+    } else {
+      list.push(user);
+    }
+    this.users = list;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("servisin_users", JSON.stringify(list));
+      } catch (e) {
+        console.error("Error saving servisin_users:", e);
+      }
+    }
+  }
+
+  public getCurrentUser(): User {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("servisin_current_user");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.id) {
+            return new User(parsed);
+          }
+        }
+      } catch (e) {
+        console.error("Error reading servisin_current_user:", e);
+      }
+    }
+    return this.users[0];
+  }
+
+  public setCurrentUser(user: User): void {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("servisin_current_user", JSON.stringify(user));
+      } catch (e) {
+        console.error("Error saving servisin_current_user:", e);
+      }
+    }
+  }
+
+  public findUserByPhoneOrEmail(identifier: string): User | undefined {
+    const allUsers = this.getUsers();
+    const cleanPhone = identifier.replace(/[^0-9]/g, "");
+    return allUsers.find(
+      (u) =>
+        u.email.toLowerCase() === identifier.toLowerCase() ||
+        (cleanPhone.length >= 8 && u.phone.replace(/[^0-9]/g, "").includes(cleanPhone))
+    );
+  }
+
+  // =========================================================================
+  // VEHICLE PERSISTENCE & HELPERS
+  // =========================================================================
+  public getVehicles(userId?: string): Vehicle[] {
+    let currentList = this.vehicles;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("servisin_vehicles");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            currentList = parsed.map((v: any) => new Vehicle(v));
+          }
+        }
+      } catch (e) {
+        console.error("Error reading servisin_vehicles:", e);
+      }
+    }
+    if (userId) {
+      const filtered = currentList.filter((v) => v.userId === userId);
+      return filtered.length > 0 ? filtered : currentList;
+    }
+    return currentList;
+  }
+
+  public setVehicles(list: Vehicle[]): void {
+    this.vehicles = list;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("servisin_vehicles", JSON.stringify(list));
+      } catch (e) {
+        console.error("Error saving servisin_vehicles:", e);
+      }
+    }
+  }
+
+  public addVehicle(vehicle: Vehicle): void {
+    const list = this.getVehicles();
+    const existingIndex = list.findIndex(
+      (v) => v.id === vehicle.id || v.licensePlate === vehicle.licensePlate
+    );
+    if (existingIndex >= 0) {
+      list[existingIndex] = vehicle;
+    } else {
+      list.push(vehicle);
+    }
+    this.setVehicles(list);
+  }
+
+  public setActiveVehicle(userId: string, vehicleId: string): void {
+    const list = this.getVehicles();
+    const updated = list.map((v) => {
+      v.isActive = v.id === vehicleId;
+      return v;
+    });
+    this.setVehicles(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("servisin_active_vehicle_id", vehicleId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+
+  public getActiveVehicle(userId?: string): Vehicle | undefined {
+    const list = this.getVehicles(userId);
+    if (typeof window !== "undefined") {
+      try {
+        const storedActiveId = localStorage.getItem("servisin_active_vehicle_id");
+        if (storedActiveId) {
+          const found = list.find((v) => v.id === storedActiveId);
+          if (found) return found;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return list.find((v) => v.isActive) || list[0];
+  }
+
+  // =========================================================================
+  // ORDER PERSISTENCE & HELPERS
+  // =========================================================================
+  public getOrders(): ServiceOrder[] {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("servisin_orders");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((item: any) => new ServiceOrder(item));
+          }
+        }
+      } catch (e) {
+        console.error("Error reading servisin_orders:", e);
+      }
+    }
+    return this.orders;
+  }
+
+  public addOrder(order: ServiceOrder): void {
+    const currentOrders = this.getOrders();
+    const existingIndex = currentOrders.findIndex((o) => o.id === order.id);
+    if (existingIndex >= 0) {
+      currentOrders[existingIndex] = order;
+    } else {
+      currentOrders.unshift(order);
+    }
+    this.orders = currentOrders;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("servisin_orders", JSON.stringify(currentOrders));
+      } catch (e) {
+        console.error("Error saving servisin_orders:", e);
+      }
+    }
+  }
+
+  public updateOrderStatus(orderId: string, status: any): void {
+    const list = this.getOrders();
+    const found = list.find((o) => o.id === orderId);
+    if (found) {
+      found.status = status;
+    }
+    this.orders = list;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("servisin_orders", JSON.stringify(list));
+      } catch (e) {
+        console.error("Error updating servisin_orders:", e);
+      }
+    }
+  }
+
+  // =========================================================================
+  // WALLET & VIP
+  // =========================================================================
   public customerWallet: CustomerWalletData = {
     balance: 650000,
     pin: "123456",
@@ -189,13 +404,18 @@ class ServisInDataStore {
       localStorage.setItem("servisin_customer_balance", newBalance.toString());
       try {
         const historyJson = localStorage.getItem("servisin_wallet_history");
-        const list: WalletTransaction[] = historyJson ? JSON.parse(historyJson) : [...this.customerWallet.history];
+        const list: WalletTransaction[] = historyJson
+          ? JSON.parse(historyJson)
+          : [...this.customerWallet.history];
         list.unshift({
           id: "TOPUP-" + Date.now().toString(36).toUpperCase(),
           type: "TOPUP",
           amount: amount,
           description: `Top Up Saldo via ${method}`,
-          timestamp: new Date().toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }),
+          timestamp: new Date().toLocaleString("id-ID", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
           method,
         });
         localStorage.setItem("servisin_wallet_history", JSON.stringify(list));
@@ -203,6 +423,15 @@ class ServisInDataStore {
         console.error(e);
       }
     }
+
+    // Sync to Supabase Wallet table in background
+    try {
+      const curUser = this.getCurrentUser();
+      SupabaseService.topUpWallet(curUser.id, amount, method).catch(() => {});
+    } catch (e) {
+      console.warn("Notice syncing topup to Supabase:", e);
+    }
+
     return newBalance;
   }
 
@@ -215,13 +444,18 @@ class ServisInDataStore {
       localStorage.setItem("servisin_customer_balance", newBalance.toString());
       try {
         const historyJson = localStorage.getItem("servisin_wallet_history");
-        const list: WalletTransaction[] = historyJson ? JSON.parse(historyJson) : [...this.customerWallet.history];
+        const list: WalletTransaction[] = historyJson
+          ? JSON.parse(historyJson)
+          : [...this.customerWallet.history];
         list.unshift({
           id: "PAY-" + Date.now().toString(36).toUpperCase(),
           type: "PAYMENT",
           amount: -amount,
           description: `Pembayaran Servis #${orderId || "SRV-8942"}`,
-          timestamp: new Date().toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }),
+          timestamp: new Date().toLocaleString("id-ID", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
           orderId,
         });
         localStorage.setItem("servisin_wallet_history", JSON.stringify(list));
@@ -229,6 +463,15 @@ class ServisInDataStore {
         console.error(e);
       }
     }
+
+    // Sync to Supabase Wallet table in background
+    try {
+      const curUser = this.getCurrentUser();
+      SupabaseService.deductWallet(curUser.id, amount, orderId).catch(() => {});
+    } catch (e) {
+      console.warn("Notice syncing deduct to Supabase:", e);
+    }
+
     return true;
   }
 
@@ -243,33 +486,25 @@ class ServisInDataStore {
         return stored;
       }
     }
-    const u = this.users.find((u) => u.id === userId);
+    const u = this.getUsers().find((u) => u.id === userId);
     return u?.tier || "Regular";
   }
 
   public setUserTier(tier: "Regular" | "VIP", userId: string = "usr-cst-001"): void {
-    const u = this.users.find((u) => u.id === userId);
+    const list = this.getUsers();
+    const u = list.find((u) => u.id === userId);
     if (u) {
       u.tier = tier;
     }
+    this.users = list;
     if (typeof window !== "undefined") {
       localStorage.setItem("servisin_user_tier", tier);
+      try {
+        localStorage.setItem("servisin_users", JSON.stringify(list));
+      } catch (e) {
+        console.error(e);
+      }
     }
-  }
-
-  public findUserByPhoneOrEmail(identifier: string): User | undefined {
-    return this.users.find(
-      (u) =>
-        u.email.toLowerCase() === identifier.toLowerCase() ||
-        u.phone.replace(/[^0-9]/g, "").includes(identifier.replace(/[^0-9]/g, ""))
-    );
-  }
-
-  public getActiveVehicle(userId: string): Vehicle | undefined {
-    return (
-      this.vehicles.find((v) => v.userId === userId && v.isActive) ||
-      this.vehicles.find((v) => v.userId === userId)
-    );
   }
 }
 

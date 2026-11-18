@@ -52,14 +52,14 @@ function LoginContent() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccessMsg("");
 
-    setTimeout(() => {
-      const res = AuthController.handleLogin({
+    try {
+      const res = await AuthController.handleLogin({
         identifier,
         password,
         role,
@@ -77,7 +77,10 @@ function LoginContent() {
       } else {
         setError(res.message);
       }
-    }, 400);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || "Terjadi kendala koneksi ke database.");
+    }
   };
 
   return (
