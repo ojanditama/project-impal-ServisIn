@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CustomerBottomNav from "@/components/CustomerBottomNav";
@@ -10,6 +10,45 @@ export default function CustomerDashboardPage() {
   const router = useRouter();
   const [activeOrder] = useState(dbStore.orders[0]);
   const [activeVehicle] = useState(dbStore.vehicles[0]);
+
+  // ServisIn Wallet state
+  const [walletBalance, setWalletBalance] = useState<number>(650000);
+  const [showBalance, setShowBalance] = useState<boolean>(true);
+  const [userTier, setUserTier] = useState<"Regular" | "VIP">("Regular");
+  const [showTopUpModal, setShowTopUpModal] = useState<boolean>(false);
+  const [topUpAmount, setTopUpAmount] = useState<number>(100000);
+  const [topUpMethod, setTopUpMethod] = useState<"qris" | "va">("qris");
+  const [topUpStep, setTopUpStep] = useState<"nominal" | "payment">("nominal");
+  const [topUpSuccess, setTopUpSuccess] = useState<boolean>(false);
+  const [generatedTopUpVa, setGeneratedTopUpVa] = useState<string>("8277 0892 4118 7632");
+  const [copiedTopUpVa, setCopiedTopUpVa] = useState<boolean>(false);
+
+  useEffect(() => {
+    setWalletBalance(dbStore.getCustomerBalance());
+    setUserTier(dbStore.getUserTier());
+  }, []);
+
+  const handleOpenTopUp = () => {
+    setTopUpStep("nominal");
+    setTopUpSuccess(false);
+    const randomSuffix = Math.floor(10000000 + Math.random() * 90000000).toString();
+    setGeneratedTopUpVa(`8277 ${randomSuffix.slice(0, 4)} ${randomSuffix.slice(4, 8)}`);
+    setShowTopUpModal(true);
+  };
+
+  const handleConfirmTopUpPayment = () => {
+    const newBal = dbStore.topUpCustomerWallet(
+      topUpAmount,
+      topUpMethod === "qris" ? "QRIS Instan" : "BCA Virtual Account"
+    );
+    setWalletBalance(newBal);
+    setTopUpSuccess(true);
+    setTimeout(() => {
+      setTopUpSuccess(false);
+      setShowTopUpModal(false);
+      setTopUpStep("nominal");
+    }, 1800);
+  };
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col pb-20 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
@@ -116,6 +155,86 @@ export default function CustomerDashboardPage() {
           >
             Ganti
           </Link>
+        </div>
+
+        {/* ServisIn Wallet Card */}
+        <div className="bg-gradient-to-r from-surface-container-lowest via-surface-container-low to-surface-container-lowest rounded-2xl p-4 shadow-sm border border-surface-container-high/70 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-secondary text-on-secondary flex items-center justify-center">
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                  account_balance_wallet
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-label-sm text-[10px] uppercase font-bold text-on-surface-variant">
+                  DOMPET DIGITAL RESMI
+                </span>
+                <span className="font-label-md text-xs font-bold text-on-surface">
+                  ServisIn Wallet
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/premium"
+                className={`px-2 py-0.5 rounded-full font-label-sm text-[10px] font-bold transition-all ${
+                  userTier === "VIP"
+                    ? "bg-amber-400 text-amber-950 shadow-sm"
+                    : "bg-surface-container-high text-on-surface-variant hover:bg-primary-container hover:text-on-primary"
+                }`}
+              >
+                {userTier === "VIP" ? "★ VIP MEMBER" : "REGULER • UPGRADE"}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowBalance(!showBalance)}
+                className="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"
+                title={showBalance ? "Sembunyikan saldo" : "Tampilkan saldo"}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  {showBalance ? "visibility" : "visibility_off"}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-end justify-between pt-1">
+            <div>
+              <span className="text-[10px] text-on-surface-variant font-medium block">
+                Saldo Aktif Anda
+              </span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="font-headline-lg text-2xl font-black text-on-surface">
+                  {showBalance ? `Rp ${walletBalance.toLocaleString("id-ID")}` : "Rp ••••••••"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenTopUp}
+                className="h-9 px-3.5 rounded-xl bg-secondary text-on-secondary font-label-md text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  add_circle
+                </span>
+                <span>Top Up</span>
+              </button>
+
+              <Link
+                href="/payment?id=SRV-8942"
+                className="h-9 px-3 rounded-xl bg-surface-container text-on-surface font-label-md text-xs font-bold flex items-center gap-1 hover:bg-surface-container-high transition-all"
+              >
+                <span>Bayar</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  arrow_forward
+                </span>
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* SOS Emergency Banner */}
@@ -602,6 +721,247 @@ export default function CustomerDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* DASHBOARD TOP UP MODAL (WITH QRIS & VIRTUAL ACCOUNT)                     */}
+      {/* ========================================================================= */}
+      {showTopUpModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest max-w-sm w-full rounded-3xl p-5 shadow-2xl flex flex-col gap-3 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-secondary text-on-secondary flex items-center justify-center">
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                    add_card
+                  </span>
+                </div>
+                <span className="font-headline-sm text-sm font-bold text-on-surface">
+                  {topUpStep === "nominal" ? "Top Up ServisIn Wallet" : "Konfirmasi Pembayaran Top Up"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTopUpModal(false)}
+                className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                  close
+                </span>
+              </button>
+            </div>
+
+            {/* Current Balance Bar */}
+            <div className="bg-surface-container-low rounded-xl p-3 flex justify-between items-center text-xs">
+              <span className="text-on-surface-variant">Saldo saat ini:</span>
+              <span className="font-headline-sm font-bold text-on-surface">
+                Rp {walletBalance.toLocaleString("id-ID")}
+              </span>
+            </div>
+
+            {topUpStep === "nominal" ? (
+              <>
+                {/* Nominal Chips */}
+                <div>
+                  <span className="text-xs font-bold text-on-surface block mb-2">
+                    Pilih Nominal Top Up:
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[50000, 100000, 250000, 500000, 1000000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTopUpAmount(amt)}
+                        className={`py-2 px-1 rounded-xl font-bold text-xs transition-all border ${
+                          topUpAmount === amt
+                            ? "bg-secondary text-on-secondary border-secondary shadow-sm"
+                            : "bg-surface-container-lowest border-surface-container-high text-on-surface hover:bg-surface-container-low"
+                        }`}
+                      >
+                        Rp {(amt / 1000).toLocaleString("id-ID")}rb
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Nominal */}
+                  <div className="mt-2.5">
+                    <span className="text-[11px] text-on-surface-variant font-medium block mb-1">
+                      Atau ketik nominal sendiri:
+                    </span>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 font-bold text-xs text-on-surface-variant">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        value={topUpAmount || ""}
+                        onChange={(e) => setTopUpAmount(Number(e.target.value))}
+                        className="w-full h-10 pl-9 pr-3 bg-surface-container-low rounded-xl text-on-surface font-bold text-xs focus:outline-none focus:ring-2 focus:ring-secondary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Up Method Selection */}
+                <div>
+                  <span className="text-xs font-bold text-on-surface block mb-2">
+                    Pilih Metode Top Up:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTopUpMethod("qris")}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
+                        topUpMethod === "qris"
+                          ? "bg-secondary-fixed/50 border-secondary text-secondary ring-2 ring-secondary/20"
+                          : "bg-surface-container-lowest border-surface-container-high text-on-surface"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
+                        qr_code_2
+                      </span>
+                      <span className="font-bold text-xs">QRIS Instan</span>
+                      <span className="text-[10px] text-on-surface-variant">GoPay/OVO/BCA</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTopUpMethod("va")}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
+                        topUpMethod === "va"
+                          ? "bg-secondary-fixed/50 border-secondary text-secondary ring-2 ring-secondary/20"
+                          : "bg-surface-container-lowest border-surface-container-high text-on-surface"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 24 }}>
+                        account_balance
+                      </span>
+                      <span className="font-bold text-xs">Virtual Account</span>
+                      <span className="text-[10px] text-on-surface-variant">BCA / Mandiri / BRI</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Continue button */}
+                <button
+                  type="button"
+                  onClick={() => setTopUpStep("payment")}
+                  disabled={topUpAmount < 10000}
+                  className="w-full mt-2 h-11 rounded-xl bg-secondary text-on-secondary font-label-md font-bold hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                >
+                  <span>Lanjutkan Top Up Rp {topUpAmount.toLocaleString("id-ID")}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                    arrow_forward
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Step 2: Payment Display */}
+                {topUpMethod === "qris" ? (
+                  <div className="flex flex-col items-center gap-2.5">
+                    <span className="text-xs font-bold text-on-surface">
+                      Scan QRIS ServisIn di Bawah:
+                    </span>
+                    <div className="bg-white rounded-2xl p-2 border-2 border-secondary/30 shadow-inner flex flex-col items-center">
+                      <div className="w-[200px] aspect-[3/4.2] rounded-xl overflow-hidden">
+                        <img
+                          src="/images/qris-servisin.jpg"
+                          alt="QRIS ServisIn"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <span className="text-[10px] text-neutral-500 font-mono mt-1">
+                        SERVISIN INDONESIA • NMID: ID1020038472910
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-surface-container-low rounded-xl p-2.5 text-center">
+                      <span className="text-[10px] text-on-surface-variant block uppercase font-bold">
+                        TOTAL PEMBAYARAN
+                      </span>
+                      <span className="font-headline-md text-base font-black text-primary">
+                        Rp {topUpAmount.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2.5">
+                    <span className="text-xs font-bold text-on-surface">
+                      Nomor Virtual Account Top Up:
+                    </span>
+                    <div className="bg-surface-container-low rounded-2xl p-3 border border-surface-container-high flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-surface-container-lowest rounded-xl p-3 border border-surface-container-high">
+                        <span className="font-mono text-base font-bold text-on-surface tracking-wider">
+                          {generatedTopUpVa}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(generatedTopUpVa.replace(/\s/g, ""));
+                            setCopiedTopUpVa(true);
+                            setTimeout(() => setCopiedTopUpVa(false), 2000);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-secondary text-on-secondary font-label-sm text-xs font-bold flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                            content_copy
+                          </span>
+                          {copiedTopUpVa ? "Tersalin!" : "Salin"}
+                        </button>
+                      </div>
+                      <span className="text-[11px] text-on-surface-variant">
+                        Bank: <strong>BCA / Prima Network</strong> (Verifikasi Otomatis)
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-surface-container-low rounded-xl p-2.5 text-center">
+                      <span className="text-[10px] text-on-surface-variant block uppercase font-bold">
+                        NOMINAL TRANSFER TEPAT
+                      </span>
+                      <span className="font-headline-md text-base font-black text-primary">
+                        Rp {topUpAmount.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success feedback */}
+                {topUpSuccess && (
+                  <div className="p-2.5 rounded-xl bg-tertiary-fixed text-tertiary text-xs font-bold flex items-center gap-2 justify-center animate-in zoom-in-95">
+                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                      verified
+                    </span>
+                    <span>Top Up Berhasil! Saldo Bertambah.</span>
+                  </div>
+                )}
+
+                {/* Confirmation Action */}
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleConfirmTopUpPayment}
+                    className="w-full h-11 rounded-xl bg-tertiary text-on-tertiary font-label-md font-bold hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                      check_circle
+                    </span>
+                    <span>Saya Sudah Bayar (Konfirmasi Saldo)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTopUpStep("nominal")}
+                    className="w-full h-9 rounded-xl bg-surface-container text-on-surface-variant font-label-md text-xs font-semibold hover:bg-surface-container-high"
+                  >
+                    Kembali Ganti Nominal
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Customer Bottom Navigation */}
       <CustomerBottomNav />

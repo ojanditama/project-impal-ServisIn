@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+project-impal-ServisIn/
 
 # debug
 npm-debug.log*
