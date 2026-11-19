@@ -28,6 +28,17 @@ export default function RegisterPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [lang, setLang] = useState<"ID" | "EN">("ID");
 
+  // Success proof modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [registeredProofData, setRegisteredProofData] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: "Customer" | "Mechanic";
+    createdAt: string;
+  } | null>(null);
+
   // Sync users from Supabase on mount for real-time duplicate checking
   useEffect(() => {
     SupabaseService.getAllUsers()
@@ -219,13 +230,18 @@ export default function RegisterPage() {
 
       if (res.success) {
         setSuccessMsg(res.message);
-        setTimeout(() => {
-          if (role === "Customer") {
-            router.push(`/login?registered=1&role=Customer&identifier=${encodeURIComponent(fullPhone)}`);
-          } else {
-            setShowMechanicPendingModal(true);
-          }
-        }, 1200);
+        setRegisteredProofData({
+          id: res.user?.id || "usr-" + Date.now(),
+          name,
+          email: email || `${fullPhone}@servisin.id`,
+          phone: fullPhone,
+          role,
+          createdAt: new Date().toLocaleString("id-ID", {
+            dateStyle: "full",
+            timeStyle: "short",
+          }),
+        });
+        setShowSuccessModal(true);
       } else {
         setError(res.message);
         if (res.message.includes("Alamat email") || res.message.includes("email") || res.message.includes("Email")) {
@@ -981,6 +997,162 @@ export default function RegisterPage() {
               >
                 Kembali ke Halaman Masuk
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Popup Bukti Berhasil Registrasi */}
+      {showSuccessModal && registeredProofData && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-surface-container-lowest max-w-md w-full rounded-3xl p-6 text-center shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 border border-surface-container-high/60 my-auto">
+            {/* Top Icon with Pulse Ring */}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined" style={{ fontSize: 36 }}>
+                  verified
+                </span>
+              </div>
+              <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+              </span>
+            </div>
+
+            {/* Header Text */}
+            <div>
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1">
+                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
+                  check_circle
+                </span>
+                BUKTI REGISTRASI BERHASIL
+              </span>
+              <h2 className="font-headline-md text-xl font-bold text-on-surface mt-2">
+                Pendaftaran Berhasil!
+              </h2>
+              <p className="font-body-sm text-xs text-on-surface-variant mt-1 leading-relaxed">
+                Akun ServisIn Anda telah aktif dan tersinkronkan ke database cloud Supabase.
+              </p>
+            </div>
+
+            {/* Bukti Rincian Akun (Receipt Card) */}
+            <div className="w-full bg-surface-container-low rounded-2xl p-4 border border-surface-container-high/60 text-left flex flex-col gap-2.5 text-xs shadow-inner">
+              <div className="flex items-center justify-between pb-2 border-b border-surface-container-high/80">
+                <span className="text-[10px] uppercase font-bold text-on-surface-variant">
+                  BUKTI TIKET AKUN
+                </span>
+                <span className="font-mono text-[11px] font-bold text-primary">
+                  #{registeredProofData.id}
+                </span>
+              </div>
+
+              {/* Nama Lengkap */}
+              <div className="flex items-start justify-between py-1 border-b border-surface-container-high/40">
+                <span className="text-on-surface-variant flex items-center gap-1.5 font-medium">
+                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>
+                    person
+                  </span>
+                  Nama Lengkap
+                </span>
+                <span className="font-bold text-on-surface text-right max-w-[200px] truncate">
+                  {registeredProofData.name}
+                </span>
+              </div>
+
+              {/* Nomor Telepon / WhatsApp */}
+              <div className="flex items-start justify-between py-1 border-b border-surface-container-high/40">
+                <span className="text-on-surface-variant flex items-center gap-1.5 font-medium">
+                  <span className="material-symbols-outlined text-tertiary" style={{ fontSize: 16 }}>
+                    chat
+                  </span>
+                  Nomor WhatsApp
+                </span>
+                <span className="font-mono font-bold text-on-surface text-right">
+                  {registeredProofData.phone}
+                </span>
+              </div>
+
+              {/* Alamat Email */}
+              <div className="flex items-start justify-between py-1 border-b border-surface-container-high/40">
+                <span className="text-on-surface-variant flex items-center gap-1.5 font-medium">
+                  <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 16 }}>
+                    mail
+                  </span>
+                  Alamat Email
+                </span>
+                <span className="font-bold text-on-surface text-right max-w-[200px] truncate">
+                  {registeredProofData.email}
+                </span>
+              </div>
+
+              {/* Tipe Akun / Role */}
+              <div className="flex items-start justify-between py-1 border-b border-surface-container-high/40">
+                <span className="text-on-surface-variant flex items-center gap-1.5 font-medium">
+                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>
+                    badge
+                  </span>
+                  Tipe Akun (Role)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-secondary-fixed text-secondary font-bold text-[10px]">
+                  {registeredProofData.role === "Customer" ? "Pelanggan (Pemilik Mobil)" : "Mitra Mekanik Teknisi"}
+                </span>
+              </div>
+
+              {/* Waktu Registrasi */}
+              <div className="flex items-start justify-between pt-1">
+                <span className="text-on-surface-variant flex items-center gap-1.5 font-medium">
+                  <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 16 }}>
+                    schedule
+                  </span>
+                  Waktu Terdaftar
+                </span>
+                <span className="text-[11px] text-on-surface-variant text-right font-medium">
+                  {registeredProofData.createdAt}
+                </span>
+              </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="w-full bg-emerald-50 text-emerald-900 rounded-xl p-2.5 text-left text-[11px] flex items-center gap-2 border border-emerald-200">
+              <span className="material-symbols-outlined text-emerald-600 flex-shrink-0" style={{ fontSize: 18 }}>
+                lock_clock
+              </span>
+              <span>
+                Kredensial Anda telah aktif. Silakan gunakan nomor WhatsApp atau email di atas untuk login ke aplikasi.
+              </span>
+            </div>
+
+            {/* Action Button: Masuk Sekarang */}
+            <div className="w-full flex flex-col gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  router.push(
+                    `/login?registered=1&role=${registeredProofData.role}&identifier=${encodeURIComponent(
+                      registeredProofData.phone
+                    )}`
+                  );
+                }}
+                className="w-full h-12 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md font-bold flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-95 transition-all"
+              >
+                <span>Lanjut Masuk ke Akun (Login)</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                  arrow_forward
+                </span>
+              </button>
+
+              {registeredProofData.role === "Mechanic" && (
+                <Link
+                  href="/admin"
+                  className="w-full h-10 rounded-xl bg-secondary-fixed text-secondary font-bold text-xs flex items-center justify-center gap-1 hover:brightness-105"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                    admin_panel_settings
+                  </span>
+                  <span>Buka Panel Admin (Verifikasi Dokumen BNSP)</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
