@@ -32,9 +32,9 @@ export default function AppNavbar({
   const navLinks = [
     { name: "Beranda", href: "/dashboard", icon: "home" },
     { name: "Kendaraan", href: "/vehicles", icon: "directions_car" },
-    { name: "Booking Servis", href: "/booking", icon: "calendar_clock" },
-    { name: "AI Diagnostik", href: "/ai-diagnostic", icon: "auto_fix_high", badge: "VIP" },
-    { name: "ServisIn VIP", href: "/premium", icon: "workspace_premium" },
+    { name: "Booking", href: "/booking", icon: "calendar_clock", isCta: true },
+    { name: "AI Diag", href: "/ai-diagnostic", icon: "auto_fix_high", badge: "VIP" },
+    { name: "Profil", href: "/profile", icon: "person" },
   ];
 
   return (
@@ -87,6 +87,21 @@ export default function AppNavbar({
         {/* Center: Desktop Navigation Links (Hidden on mobile) */}
         <nav className="hidden md:flex items-center gap-1 lg:gap-2">
           {navLinks.map((link) => {
+            if (link.isCta) {
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-primary text-on-primary shadow-md shadow-primary/25 hover:brightness-105 active:scale-95 transition-all"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                    {link.icon}
+                  </span>
+                  <span>{link.name}</span>
+                </Link>
+              );
+            }
+
             const isActive =
               link.href === "/dashboard"
                 ? pathname === "/dashboard" || pathname === "/"
@@ -98,7 +113,7 @@ export default function AppNavbar({
                 href={link.href}
                 className={`relative px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   isActive
-                    ? "bg-secondary-fixed/60 text-secondary shadow-sm"
+                    ? "bg-primary/10 text-primary font-bold shadow-sm"
                     : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low"
                 }`}
               >

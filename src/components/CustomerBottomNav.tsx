@@ -13,10 +13,12 @@ export default function CustomerBottomNav() {
   const isProfile = pathname.startsWith("/premium") || pathname.startsWith("/profile");
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 md:hidden bg-surface/90 backdrop-blur-xl border-t border-surface-container-high/60 h-16 flex items-center justify-around px-2 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto z-40 md:hidden bg-surface/90 backdrop-blur-xl border-t border-surface-container-high/60 flex items-center justify-around px-2 shadow-lg"
+      style={{ height: 64 }}
+    >
       <Link
         href="/dashboard"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] py-1.5 transition-colors ${
           isHome ? "text-primary-container font-semibold" : "text-on-surface-variant hover:text-on-surface"
         }`}
       >
@@ -31,7 +33,7 @@ export default function CustomerBottomNav() {
 
       <Link
         href="/vehicles"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] py-1.5 transition-colors ${
           isVehicle ? "text-primary-container font-semibold" : "text-on-surface-variant hover:text-on-surface"
         }`}
       >
@@ -49,7 +51,9 @@ export default function CustomerBottomNav() {
         href="/booking"
         className="flex flex-col items-center justify-center flex-1 -mt-5 group"
       >
-        <div className="w-12 h-12 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-[0_4px_16px_rgba(255,107,0,0.4)] group-active:scale-95 transition-all">
+        <div className="w-13 h-13 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-[0_4px_16px_rgba(255,107,0,0.4)] group-active:scale-95 transition-all"
+          style={{ width: 52, height: 52 }}
+        >
           <span className="material-symbols-outlined" style={{ fontSize: 28 }}>
             calendar_clock
           </span>
@@ -61,7 +65,7 @@ export default function CustomerBottomNav() {
 
       <Link
         href="/ai-diagnostic"
-        className={`flex flex-col items-center justify-center flex-1 py-1 relative transition-colors ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] py-1.5 relative transition-colors ${
           isAiDiag ? "text-primary-container font-semibold" : "text-on-surface-variant hover:text-on-surface"
         }`}
       >
@@ -81,7 +85,7 @@ export default function CustomerBottomNav() {
 
       <Link
         href="/premium"
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+        className={`flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] py-1.5 transition-colors ${
           isProfile ? "text-primary-container font-semibold" : "text-on-surface-variant hover:text-on-surface"
         }`}
       >

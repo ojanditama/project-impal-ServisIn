@@ -66,9 +66,9 @@ function MechanicNavigationContent() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col pb-24 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
-      {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-surface/85 backdrop-blur-xl border-b border-surface-container-high/40 px-4 h-14 flex items-center justify-between">
+    <div className="w-full min-h-screen bg-surface flex flex-col pb-20 md:pb-8 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
+      {/* Top Header (Mobile only, desktop uses top nav) */}
+      <header className="md:hidden sticky top-0 z-30 bg-surface/85 backdrop-blur-xl border-b border-surface-container-high/40 px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link
             href="/mechanic/dashboard"
@@ -102,9 +102,11 @@ function MechanicNavigationContent() {
         </div>
       </header>
 
-      {/* Turn-by-turn HUD (Navigation Banner) */}
-      <div className="p-3">
-        <div className="bg-slate-900 text-white rounded-2xl p-3.5 shadow-lg flex items-center justify-between">
+      {/* Main Container */}
+      <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-3 md:py-6 flex flex-col gap-4">
+        {/* Turn-by-turn HUD (Navigation Banner) */}
+        <div>
+          <div className="bg-slate-900 text-white rounded-2xl p-3.5 shadow-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-primary-container text-on-primary flex items-center justify-center font-bold shadow-md">
               <span className="material-symbols-outlined" style={{ fontSize: 28 }}>
@@ -131,10 +133,12 @@ function MechanicNavigationContent() {
             <span className="text-[10px] text-slate-400">1.2 km lagi</span>
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* GPS Map Area */}
-      <div className="relative h-64 w-full bg-slate-200 overflow-hidden">
+        {/* 2-Column Grid on Desktop: Map & Details */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          {/* Left Column: GPS Map Area */}
+          <div className="relative h-72 lg:h-[460px] w-full bg-slate-200 rounded-2xl overflow-hidden shadow-sm border border-surface-container-high/60">
         <div
           className="absolute inset-0 bg-cover bg-center filter contrast-125"
           style={{
@@ -191,11 +195,11 @@ function MechanicNavigationContent() {
             Rute Aktif
           </span>
         </div>
-      </div>
+          </div>
 
-      {/* Customer Profile & Emergency Card */}
-      <div className="px-4 pt-3 flex flex-col gap-3">
-        <div className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-surface-container-high/60 flex flex-col gap-3">
+          {/* Right Column: Customer Info & Stepper */}
+          <div className="flex flex-col gap-4">
+            <div className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-surface-container-high/60 flex flex-col gap-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -377,6 +381,8 @@ function MechanicNavigationContent() {
             )}
           </button>
         </div>
+      </div>
+      </div>
       </div>
 
       {/* Toast */}

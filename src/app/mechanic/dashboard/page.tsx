@@ -129,9 +129,9 @@ export default function MechanicDashboardPage() {
     : dbStore.vehicles[0];
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col pb-20 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-surface/85 backdrop-blur-xl border-b border-surface-container-high/40 px-4 h-16 flex items-center justify-between">
+    <div className="w-full min-h-screen bg-surface flex flex-col pb-20 md:pb-8 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
+      {/* Mobile Header (hidden on desktop where MechanicBottomNav provides top nav) */}
+      <header className="sticky top-0 z-30 md:hidden bg-surface/85 backdrop-blur-xl border-b border-surface-container-high/40 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-primary-container flex items-center justify-center text-on-primary shadow-sm">
             <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -175,7 +175,7 @@ export default function MechanicDashboardPage() {
       </header>
 
       {/* Main Content */}
-      <div className="px-4 pt-3 flex flex-col gap-4">
+      <div className="w-full max-w-5xl mx-auto px-4 md:px-8 pt-3 md:pt-6 flex flex-col gap-4">
         {/* Availability Toggle Bar */}
         <div className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-surface-container-high/60 flex items-center justify-between">
           <div>
@@ -441,6 +441,7 @@ export default function MechanicDashboardPage() {
             </span>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* Item 1 */}
           <div
             onClick={() => router.push("/mechanic/navigation")}
@@ -505,6 +506,7 @@ export default function MechanicDashboardPage() {
             <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 20 }}>
               chevron_right
             </span>
+          </div>
           </div>
         </div>
       </div>

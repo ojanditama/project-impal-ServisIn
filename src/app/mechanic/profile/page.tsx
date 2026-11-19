@@ -30,7 +30,8 @@ export default function MechanicProfilePage() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col p-4 pb-28 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
+    <div className="w-full min-h-screen bg-surface flex flex-col pb-20 md:pb-8 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
+      <div className="w-full max-w-2xl mx-auto p-4 md:px-8 md:py-6 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between pt-2 pb-3 border-b border-surface-container-high/60">
         <div className="flex items-center gap-2">
@@ -288,6 +289,8 @@ export default function MechanicProfilePage() {
           </div>
         </div>
       )}
+
+      </div>
 
       {/* Bottom Nav */}
       <MechanicBottomNav />

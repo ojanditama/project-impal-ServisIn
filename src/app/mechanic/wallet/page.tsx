@@ -26,9 +26,9 @@ export default function MechanicWalletPage() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col pb-24 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
-      {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-surface/85 backdrop-blur-xl border-b border-surface-container-high/40 px-4 h-14 flex items-center justify-between">
+    <div className="w-full min-h-screen bg-surface flex flex-col pb-20 md:pb-8 selection:bg-primary-fixed selection:text-on-primary-fixed relative">
+      {/* Top Header (Mobile only, desktop uses top nav) */}
+      <header className="md:hidden sticky top-0 z-30 bg-surface/85 backdrop-blur-xl border-b border-surface-container-high/40 px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link
             href="/mechanic/dashboard"
@@ -60,8 +60,10 @@ export default function MechanicWalletPage() {
         </div>
       </header>
 
-      {/* Profile Bar */}
-      <div className="px-4 pt-3">
+      {/* Main Content Container */}
+      <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-3 md:py-6 flex flex-col gap-4">
+        {/* Profile Bar */}
+        <div>
         <div className="bg-surface-container-lowest rounded-2xl p-3 border border-surface-container-high/60 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -96,9 +98,11 @@ export default function MechanicWalletPage() {
         </div>
       </div>
 
-      {/* Dompet Saldo Utama Card (Dark Luxury) */}
-      <div className="px-4 pt-3">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-white shadow-xl border border-slate-800">
+        {/* Top Grid: Saldo Utama & Performa */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Dompet Saldo Utama Card (Dark Luxury) */}
+          <div>
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-white shadow-xl border border-slate-800 h-full flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center text-white">
@@ -184,11 +188,11 @@ export default function MechanicWalletPage() {
               ⚡ Payout Instan 2 Menit
             </span>
           </div>
-        </div>
-      </div>
+          </div>
+          </div>
 
-      {/* Performa & Insentif */}
-      <div className="px-4 pt-4 flex flex-col gap-2.5">
+          {/* Performa & Insentif */}
+          <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-headline-sm text-headline-sm font-bold text-on-surface">
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>
@@ -259,10 +263,11 @@ export default function MechanicWalletPage() {
             </span>
           </div>
         </div>
+        </div>
       </div>
 
       {/* Armada & Toolkit Standar BNSP */}
-      <div className="px-4 pt-4 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-headline-sm text-headline-sm font-bold text-on-surface">
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>
@@ -301,7 +306,7 @@ export default function MechanicWalletPage() {
       </div>
 
       {/* Aktivitas Transaksi */}
-      <div className="px-4 pt-4 flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-headline-sm text-headline-sm font-bold text-on-surface">
             <span className="material-symbols-outlined text-primary-container" style={{ fontSize: 20 }}>
@@ -468,7 +473,7 @@ export default function MechanicWalletPage() {
       </div>
 
       {/* Legalitas & Sertifikasi */}
-      <div className="px-4 pt-4 pb-4 flex flex-col gap-2">
+      <div className="pb-4 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-headline-sm text-headline-sm font-bold text-on-surface">
             <span className="material-symbols-outlined text-tertiary" style={{ fontSize: 20 }}>
@@ -510,6 +515,7 @@ export default function MechanicWalletPage() {
             </span>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Payout Modal */}

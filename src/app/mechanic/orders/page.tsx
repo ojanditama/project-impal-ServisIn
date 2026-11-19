@@ -81,7 +81,8 @@ export default function MechanicOrdersPage() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-surface flex flex-col p-4 pb-24 selection:bg-primary-fixed selection:text-on-primary-fixed">
+    <div className="w-full min-h-screen bg-surface flex flex-col pb-20 md:pb-8 selection:bg-primary-fixed selection:text-on-primary-fixed">
+      <div className="w-full max-w-5xl mx-auto p-4 md:px-8 md:py-6">
       {/* Header */}
       <div className="flex items-center justify-between pt-2 pb-3 border-b border-surface-container-high/60">
         <div className="flex items-center gap-2">
@@ -103,7 +104,7 @@ export default function MechanicOrdersPage() {
       </div>
 
       {/* Orders List */}
-      <div className="flex flex-col gap-3 mt-4">
+      <div className="flex flex-col md:grid md:grid-cols-2 gap-3 mt-4">
         {orders.length === 0 ? (
           <div className="bg-surface-container-lowest rounded-2xl p-6 text-center border border-surface-container-high/60 text-on-surface-variant flex flex-col items-center gap-2">
             <span className="material-symbols-outlined text-3xl text-on-surface-variant">
@@ -216,6 +217,7 @@ export default function MechanicOrdersPage() {
             );
           })
         )}
+      </div>
       </div>
 
       <MechanicBottomNav />
