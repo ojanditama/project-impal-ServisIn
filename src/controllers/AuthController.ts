@@ -16,26 +16,15 @@ export class AuthController {
       return { success: false, message: "Semua kolom wajib diisi lengkap." };
     }
 
-    // 1. Check existing in local store (by Phone and Email)
+    // 1. Check existing in local store (by Email or Phone)
     const cleanPhone = data.phone.replace(/[^0-9]/g, "");
     const cleanEmail = (data.email || `${data.phone}@servisin.id`).trim().toLowerCase();
     const existingUsers = dbStore.getUsers();
 
-    const duplicatePhone = existingUsers.find(
-      (u) =>
-        u.phone.replace(/[^0-9]/g, "") === cleanPhone ||
-        (cleanPhone.length >= 8 && u.phone.replace(/[^0-9]/g, "").includes(cleanPhone))
-    );
-    if (duplicatePhone) {
-      return {
-        success: false,
-        message: `Pendaftaran ditolak: Nomor WhatsApp (${data.phone}) sudah terdaftar di sistem. Silakan gunakan nomor lain atau masuk ke akun Anda.`,
-      };
-    }
-
+    // Check duplicate email
     if (data.email) {
       const duplicateEmail = existingUsers.find(
-        (u) => u.email.trim().toLowerCase() === cleanEmail
+        (u) => u.email && u.email.trim().toLowerCase() === cleanEmail
       );
       if (duplicateEmail) {
         return {
@@ -43,6 +32,22 @@ export class AuthController {
           message: `Pendaftaran ditolak: Alamat email (${data.email}) sudah terdaftar di sistem. Silakan gunakan email lain atau masuk ke akun Anda.`,
         };
       }
+    }
+
+    // Check duplicate phone
+    const duplicatePhone = existingUsers.find((u) => {
+      const uDigits = u.phone.replace(/[^0-9]/g, "");
+      return (
+        uDigits === cleanPhone ||
+        (cleanPhone.length >= 8 && uDigits.endsWith(cleanPhone.slice(-8))) ||
+        (cleanPhone.length >= 8 && cleanPhone.endsWith(uDigits.slice(-8)))
+      );
+    });
+    if (duplicatePhone) {
+      return {
+        success: false,
+        message: `Pendaftaran ditolak: Nomor WhatsApp (${data.phone}) sudah terdaftar di sistem. Silakan gunakan nomor lain atau masuk ke akun Anda.`,
+      };
     }
 
     const newUserId = "usr-" + Date.now();

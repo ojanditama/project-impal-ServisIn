@@ -51,8 +51,11 @@ export class SupabaseService {
     try {
       // 1. Pre-check in Supabase for duplicate phone or email
       try {
+        const cleanUserPhone = user.phone.replace(/[^0-9]/g, "");
+        const cleanUserEmail = user.email.trim().toLowerCase();
+
         const checkRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/User?or=(phone.eq.${encodeURIComponent(user.phone)},email.eq.${encodeURIComponent(user.email)})&select=id,phone,email`,
+          `${SUPABASE_URL}/rest/v1/User?or=(phone.like.*${cleanUserPhone}*,email.ilike.${encodeURIComponent(cleanUserEmail)})&select=id,phone,email`,
           {
             headers: {
               apikey: SUPABASE_ANON_KEY,
@@ -64,18 +67,32 @@ export class SupabaseService {
         if (checkRes.ok) {
           const existingUsers = await checkRes.json();
           if (Array.isArray(existingUsers) && existingUsers.length > 0) {
-            const matchedPhone = existingUsers.some((u: any) => u.phone === user.phone);
-            if (matchedPhone) {
+            const matchedEmail = existingUsers.some(
+              (u: any) => u.email && u.email.trim().toLowerCase() === cleanUserEmail
+            );
+            const matchedPhone = existingUsers.some((u: any) => {
+              const uPhone = (u.phone || "").replace(/[^0-9]/g, "");
+              return uPhone === cleanUserPhone || (cleanUserPhone.length >= 8 && uPhone.includes(cleanUserPhone));
+            });
+
+            if (matchedEmail && matchedPhone) {
               return {
                 success: false,
-                error: `Pendaftaran ditolak: Nomor WhatsApp (${user.phone}) sudah terdaftar di sistem. Silakan gunakan nomor lain atau masuk ke akun Anda.`,
+                error: `Pendaftaran ditolak: Alamat email (${user.email}) dan nomor WhatsApp (${user.phone}) sudah terdaftar di sistem. Silakan langsung masuk ke akun Anda.`,
               };
             }
-            const matchedEmail = existingUsers.some((u: any) => u.email?.toLowerCase() === user.email.toLowerCase());
+
             if (matchedEmail) {
               return {
                 success: false,
                 error: `Pendaftaran ditolak: Alamat email (${user.email}) sudah terdaftar di sistem. Silakan gunakan email lain atau masuk ke akun Anda.`,
+              };
+            }
+
+            if (matchedPhone) {
+              return {
+                success: false,
+                error: `Pendaftaran ditolak: Nomor WhatsApp (${user.phone}) sudah terdaftar di sistem. Silakan gunakan nomor lain atau masuk ke akun Anda.`,
               };
             }
           }

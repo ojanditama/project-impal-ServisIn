@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthController } from "@/controllers/AuthController";
+import { dbStore } from "@/lib/store";
+import { User } from "@/models/User";
+import { SupabaseService } from "@/lib/supabase";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -24,6 +27,30 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [lang, setLang] = useState<"ID" | "EN">("ID");
+
+  // Sync users from Supabase on mount for real-time duplicate checking
+  useEffect(() => {
+    SupabaseService.getAllUsers()
+      .then((sbUsers) => {
+        if (Array.isArray(sbUsers) && sbUsers.length > 0) {
+          sbUsers.forEach((su) => {
+            dbStore.addUser(
+              new User({
+                id: su.id,
+                name: su.name,
+                phone: su.phone,
+                email: su.email,
+                passwordHash: su.passwordHash || "password123",
+                role: su.role === "MECHANIC" ? "Mechanic" : su.role === "ADMIN" ? "Admin" : "Customer",
+                status: su.status || "Active",
+                tier: su.tier || "Regular",
+              })
+            );
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Field-level error validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -57,13 +84,30 @@ export default function RegisterPage() {
         if (cleanDigits.length > 11) {
           return `Nomor WhatsApp lebih dari 11 digit (saat ini ${cleanDigits.length} digit, maksimal 11 digit).`;
         }
+        // Check local store duplicate phone
+        const duplicatePhone = dbStore.getUsers().find((u) => {
+          const uDigits = u.phone.replace(/[^0-9]/g, "");
+          return uDigits === cleanDigits || (cleanDigits.length >= 8 && uDigits.endsWith(cleanDigits.slice(-8)));
+        });
+        if (duplicatePhone) {
+          return `Peringatan: Nomor WhatsApp (${value}) sudah terdaftar di sistem. Gunakan nomor lain.`;
+        }
         return "";
       }
-      case "email":
-        if (!value.trim()) return "Alamat email wajib diisi tidak boleh kosong.";
-        if (!value.includes("@")) return "Alamat email tidak valid (harus mengandung karakter '@').";
+      case "email": {
+        const val = value.trim().toLowerCase();
+        if (!val) return "Alamat email wajib diisi tidak boleh kosong.";
+        if (!val.includes("@")) return "Alamat email tidak valid (harus mengandung karakter '@').";
+        // Check local store duplicate email
+        const duplicateEmail = dbStore.getUsers().find(
+          (u) => u.email && u.email.trim().toLowerCase() === val
+        );
+        if (duplicateEmail) {
+          return `Peringatan: Alamat email (${value}) sudah terdaftar di sistem. Gunakan email lain.`;
+        }
         return "";
-      case "ktpNumber":
+      }
+      case "ktpNumber": {
         if (role === "Mechanic") {
           const cleanKtp = value.replace(/[^0-9]/g, "");
           if (!value.trim()) return "Nomor KTP wajib diisi tidak boleh kosong.";
@@ -71,6 +115,7 @@ export default function RegisterPage() {
           if (cleanKtp.length > 16) return `Nomor KTP lebih dari 16 digit (saat ini ${cleanKtp.length} digit).`;
         }
         return "";
+      }
       case "password":
         if (!value) return "Kata sandi wajib diisi tidak boleh kosong.";
         if (value.length < 6) return `Kata sandi kurang dari 6 karakter (saat ini ${value.length} karakter, minimal 6 karakter).`;
@@ -183,11 +228,13 @@ export default function RegisterPage() {
         }, 1200);
       } else {
         setError(res.message);
+        if (res.message.includes("Alamat email") || res.message.includes("email") || res.message.includes("Email")) {
+          setFieldErrors((prev) => ({ ...prev, email: res.message }));
+        }
         if (res.message.includes("Nomor WhatsApp") || res.message.includes("telepon") || res.message.includes("phone")) {
           setFieldErrors((prev) => ({ ...prev, phone: res.message }));
-        } else if (res.message.includes("email") || res.message.includes("Email")) {
-          setFieldErrors((prev) => ({ ...prev, email: res.message }));
-        } else if (res.message.includes("KTP")) {
+        }
+        if (res.message.includes("KTP")) {
           setFieldErrors((prev) => ({ ...prev, ktpNumber: res.message }));
         }
       }
