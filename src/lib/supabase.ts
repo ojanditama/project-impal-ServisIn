@@ -129,12 +129,13 @@ export class SupabaseService {
     try {
       const cleanPhone = identifier.replace(/[^0-9]/g, "");
       const cleanEmail = identifier.trim().toLowerCase();
+      const cleanName = identifier.trim();
 
       let query = `${SUPABASE_URL}/rest/v1/User?select=*`;
       if (cleanPhone.length >= 8) {
-        query += `&or=(email.ilike.${cleanEmail},phone.like.*${cleanPhone}*)`;
+        query += `&or=(email.ilike.${cleanEmail},phone.like.*${cleanPhone}*,name.ilike.*${cleanName}*)`;
       } else {
-        query += `&email=ilike.${cleanEmail}`;
+        query += `&or=(email.ilike.${cleanEmail},name.ilike.*${cleanName}*)`;
       }
 
       if (role) {

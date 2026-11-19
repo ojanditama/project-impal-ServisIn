@@ -86,11 +86,14 @@ export class AuthController {
     password: string;
     role: "Customer" | "Mechanic" | "Admin";
   }): Promise<{ success: boolean; user?: User; message: string }> {
-    // 1. Check local store first
+    // 1. Check local store first (by name, email, or phone)
+    const cleanIdent = credentials.identifier.trim().toLowerCase();
+    const cleanDigits = credentials.identifier.replace(/[^0-9]/g, "");
     let user = dbStore.getUsers().find(
       (u) =>
-        (u.email.toLowerCase() === credentials.identifier.toLowerCase() ||
-          u.phone.replace(/[^0-9]/g, "").includes(credentials.identifier.replace(/[^0-9]/g, ""))) &&
+        (u.name.toLowerCase() === cleanIdent ||
+          u.email.toLowerCase() === cleanIdent ||
+          (cleanDigits.length >= 8 && u.phone.replace(/[^0-9]/g, "").includes(cleanDigits))) &&
         u.role.toLowerCase() === credentials.role.toLowerCase()
     );
 

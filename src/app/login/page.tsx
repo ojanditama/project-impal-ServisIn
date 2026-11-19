@@ -46,24 +46,41 @@ function LoginContent() {
         if (!val) {
           return role === "Admin"
             ? "Email administrator wajib diisi tidak boleh kosong."
-            : "Email atau nomor WhatsApp wajib diisi tidak boleh kosong.";
+            : "Nama, email, atau nomor WhatsApp wajib diisi tidak boleh kosong.";
         }
-        // If it looks like a phone number (only digits, spaces, plus, dashes)
+
+        // 1. If it's an email (has @)
+        if (val.includes("@")) {
+          return "";
+        }
+
+        // 2. If it looks like a phone number (only digits, +, spaces, dashes)
         const isDigitsOnly = /^[0-9+\s-]+$/.test(val);
         const cleanDigits = val.replace(/[^0-9]/g, "");
-        if (isDigitsOnly && !val.includes("@")) {
+        if (isDigitsOnly && cleanDigits.length >= 8) {
           if (cleanDigits.length < 11) {
             return `Nomor WhatsApp kurang dari 11 digit (saat ini ${cleanDigits.length} digit).`;
           }
           if (cleanDigits.length > 11) {
             return `Nomor WhatsApp lebih dari 11 digit (saat ini ${cleanDigits.length} digit, maksimal 11 digit).`;
           }
-        } else {
-          // It's treated as an email
-          if (!val.includes("@")) {
-            return "Alamat email tidak valid (harus mengandung karakter '@').";
-          }
+          return "";
         }
+
+        // 3. Otherwise, treated as Nama Lengkap
+        // Nama tidak boleh memakai lambang dan angka
+        const hasDigits = /\d/.test(val);
+        const hasSymbols = /[^a-zA-Z\s]/.test(val);
+        if (hasDigits && hasSymbols) {
+          return "Nama tidak boleh memakai lambang dan angka.";
+        }
+        if (hasDigits) {
+          return "Nama tidak boleh memakai angka.";
+        }
+        if (hasSymbols) {
+          return "Nama tidak boleh memakai lambang.";
+        }
+
         return "";
       }
       case "password":
@@ -273,20 +290,17 @@ function LoginContent() {
               </div>
             )}
 
-            {/* Input: Email / WhatsApp */}
+            {/* Input: Email / WhatsApp / Nama */}
             <div className="flex flex-col gap-1.5">
               <label
                 className="font-label-md text-label-md text-on-surface flex items-center justify-between"
                 htmlFor="identifier-input"
               >
                 <span>
-                  {role === "Admin" ? "Email Administrator" : "Email atau Nomor WhatsApp"}
+                  {role === "Admin" ? "Email Administrator" : "Nama, Email, atau Nomor WhatsApp"}
                 </span>
-                <span className="text-tertiary font-label-sm text-label-sm flex items-center gap-1">
-                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
-                    lock
-                  </span>{" "}
-                  Terproteksi
+                <span className="text-secondary font-label-sm text-label-sm flex items-center gap-1">
+                  Tanpa Angka/Simbol di Nama
                 </span>
               </label>
               <div className="relative flex items-center">
@@ -310,7 +324,7 @@ function LoginContent() {
                     setTouched((prev) => ({ ...prev, identifier: true }));
                     setFieldErrors((prev) => ({ ...prev, identifier: validateLoginField("identifier", identifier) }));
                   }}
-                  placeholder={role === "Admin" ? "admin@servisin.id" : "081298453210 atau contoh@email.com"}
+                  placeholder={role === "Admin" ? "admin@servisin.id" : "Nama lengkap, 0812xxxx, atau email"}
                   className={`w-full h-12 pl-11 pr-4 rounded-xl text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none transition-all ${
                     touched.identifier && fieldErrors.identifier
                       ? "bg-error-container/10 border border-error ring-1 ring-error"

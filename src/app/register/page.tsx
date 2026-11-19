@@ -32,9 +32,22 @@ export default function RegisterPage() {
   // Individual field validator
   const validateField = (fieldName: string, value: string): string => {
     switch (fieldName) {
-      case "name":
-        if (!value.trim()) return "Nama lengkap wajib diisi tidak boleh kosong.";
+      case "name": {
+        const val = value.trim();
+        if (!val) return "Nama lengkap wajib diisi tidak boleh kosong.";
+        const hasDigits = /\d/.test(val);
+        const hasSymbols = /[^a-zA-Z\s]/.test(val);
+        if (hasDigits && hasSymbols) {
+          return "Nama tidak boleh memakai lambang dan angka.";
+        }
+        if (hasDigits) {
+          return "Nama tidak boleh memakai angka.";
+        }
+        if (hasSymbols) {
+          return "Nama tidak boleh memakai lambang.";
+        }
         return "";
+      }
       case "phone": {
         const cleanDigits = value.replace(/[^0-9]/g, "");
         if (!value.trim()) return "Nomor WhatsApp wajib diisi tidak boleh kosong.";
@@ -317,7 +330,7 @@ export default function RegisterPage() {
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <label className="font-label-md text-label-md text-on-surface">Nama Lengkap</label>
-            <span className="text-secondary font-label-sm text-label-sm">Sesuai KTP/STNK</span>
+            <span className="text-secondary font-label-sm text-label-sm">Tanpa Angka &amp; Simbol</span>
           </div>
           <div className="relative flex items-center">
             <span className="absolute left-3.5 text-on-surface-variant pointer-events-none">
