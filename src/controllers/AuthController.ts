@@ -16,30 +16,38 @@ export class AuthController {
       return { success: false, message: "Semua kolom wajib diisi lengkap." };
     }
 
-    // 1. Check existing in local store
-    const existing = dbStore.findUserByPhoneOrEmail(data.phone);
-    if (existing) {
+    // 1. Check existing in local store (by Phone and Email)
+    const cleanPhone = data.phone.replace(/[^0-9]/g, "");
+    const cleanEmail = (data.email || `${data.phone}@servisin.id`).trim().toLowerCase();
+    const existingUsers = dbStore.getUsers();
+
+    const duplicatePhone = existingUsers.find(
+      (u) =>
+        u.phone.replace(/[^0-9]/g, "") === cleanPhone ||
+        (cleanPhone.length >= 8 && u.phone.replace(/[^0-9]/g, "").includes(cleanPhone))
+    );
+    if (duplicatePhone) {
       return {
         success: false,
-        message: "Nomor WhatsApp / telepon ini sudah terdaftar.",
+        message: `Pendaftaran ditolak: Nomor WhatsApp (${data.phone}) sudah terdaftar di sistem. Silakan gunakan nomor lain atau masuk ke akun Anda.`,
       };
     }
 
+    if (data.email) {
+      const duplicateEmail = existingUsers.find(
+        (u) => u.email.trim().toLowerCase() === cleanEmail
+      );
+      if (duplicateEmail) {
+        return {
+          success: false,
+          message: `Pendaftaran ditolak: Alamat email (${data.email}) sudah terdaftar di sistem. Silakan gunakan email lain atau masuk ke akun Anda.`,
+        };
+      }
+    }
+
     const newUserId = "usr-" + Date.now();
-    const newUser = new User({
-      id: newUserId,
-      name: data.name,
-      phone: data.phone,
-      email: data.email || `${data.phone}@servisin.id`,
-      passwordHash: data.password,
-      role: data.role,
-      status: data.role === "Mechanic" ? "Pending" : "Active",
-      tier: "Regular",
-    });
 
-    newUser.register();
-
-    // 2. Persist to Supabase Database
+    // 2. Persist to Supabase Database first (Supabase also verifies duplicate phone, email, and KTP)
     try {
       const syncRes = await SupabaseService.registerUser({
         id: newUserId,
@@ -53,10 +61,10 @@ export class AuthController {
       });
 
       if (!syncRes.success) {
-        console.warn("[AuthController] Supabase sync warning:", syncRes.error);
+        console.warn("[AuthController] Supabase rejection / error:", syncRes.error);
         return {
           success: false,
-          message: syncRes.error || "Gagal menyimpan akun ke database Supabase.",
+          message: syncRes.error || "Pendaftaran ditolak: Data pengguna sudah terdaftar di database Supabase.",
         };
       }
     } catch (e: any) {
@@ -67,7 +75,19 @@ export class AuthController {
       };
     }
 
-    // 3. Save to local store & persist
+    // 3. Save to local store ONLY IF Supabase succeeded and duplicate checks passed
+    const newUser = new User({
+      id: newUserId,
+      name: data.name,
+      phone: data.phone,
+      email: data.email || `${data.phone}@servisin.id`,
+      passwordHash: data.password,
+      role: data.role,
+      status: data.role === "Mechanic" ? "Pending" : "Active",
+      tier: "Regular",
+    });
+
+    newUser.register();
     dbStore.addUser(newUser);
     dbStore.setCurrentUser(newUser);
 

@@ -19,12 +19,12 @@ export interface SupabasePaymentRecord {
 }
 
 export class SupabaseService {
-  private static getHeaders() {
+  private static getHeaders(prefer?: string) {
     return {
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=representation",
+      Prefer: prefer || "return=representation",
     };
   }
 
@@ -33,7 +33,7 @@ export class SupabaseService {
   // =========================================================================
 
   /**
-   * Register/Insert a new user in Supabase
+   * Register/Insert a new user in Supabase with duplicate pre-check
    */
   public static async registerUser(user: {
     id: string;
@@ -49,6 +49,67 @@ export class SupabaseService {
     bnspCertNumber?: string;
   }): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
+      // 1. Pre-check in Supabase for duplicate phone or email
+      try {
+        const checkRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/User?or=(phone.eq.${encodeURIComponent(user.phone)},email.eq.${encodeURIComponent(user.email)})&select=id,phone,email`,
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        if (checkRes.ok) {
+          const existingUsers = await checkRes.json();
+          if (Array.isArray(existingUsers) && existingUsers.length > 0) {
+            const matchedPhone = existingUsers.some((u: any) => u.phone === user.phone);
+            if (matchedPhone) {
+              return {
+                success: false,
+                error: `Pendaftaran ditolak: Nomor WhatsApp (${user.phone}) sudah terdaftar di sistem. Silakan gunakan nomor lain atau masuk ke akun Anda.`,
+              };
+            }
+            const matchedEmail = existingUsers.some((u: any) => u.email?.toLowerCase() === user.email.toLowerCase());
+            if (matchedEmail) {
+              return {
+                success: false,
+                error: `Pendaftaran ditolak: Alamat email (${user.email}) sudah terdaftar di sistem. Silakan gunakan email lain atau masuk ke akun Anda.`,
+              };
+            }
+          }
+        }
+      } catch (errCheck) {
+        console.warn("[Supabase] Pre-check user duplicate notice:", errCheck);
+      }
+
+      // 2. Pre-check duplicate KTP for Mechanic
+      if (user.role === "Mechanic" && user.ktpNumber) {
+        try {
+          const ktpCheck = await fetch(
+            `${SUPABASE_URL}/rest/v1/MechanicProfile?ktpNumber=eq.${encodeURIComponent(user.ktpNumber)}&select=id,ktpNumber`,
+            {
+              headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              },
+            }
+          );
+          if (ktpCheck.ok) {
+            const existingKtp = await ktpCheck.json();
+            if (Array.isArray(existingKtp) && existingKtp.length > 0) {
+              return {
+                success: false,
+                error: `Pendaftaran ditolak: Nomor KTP (${user.ktpNumber}) sudah terdaftar sebagai mitra teknisi lain.`,
+              };
+            }
+          }
+        } catch (ktpErr) {
+          console.warn("[Supabase] KTP pre-check notice:", ktpErr);
+        }
+      }
+
       const dbRole = user.role.toUpperCase(); // 'CUSTOMER' | 'MECHANIC' | 'ADMIN'
       const dbStatus = user.role === "Mechanic" ? "PENDING" : "ACTIVE";
       const dbTier = "REGULAR";
@@ -73,7 +134,7 @@ export class SupabaseService {
 
       const res = await fetch(`${SUPABASE_URL}/rest/v1/User`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: this.getHeaders("return=representation"),
         body: JSON.stringify(payload),
       });
 
@@ -81,10 +142,18 @@ export class SupabaseService {
         const errorText = await res.text();
         console.warn("[Supabase] Failed to register user:", res.status, errorText);
         let friendlyError = errorText;
-        if (errorText.includes("User_phone_key") || (errorText.includes("phone") && errorText.includes("duplicate"))) {
-          friendlyError = "Nomor WhatsApp / telepon ini sudah terdaftar di database Supabase.";
-        } else if (errorText.includes("User_email_key") || (errorText.includes("email") && errorText.includes("duplicate"))) {
-          friendlyError = "Email ini sudah terdaftar di database Supabase.";
+        if (
+          errorText.includes("User_phone_key") ||
+          (errorText.includes("phone") && (errorText.includes("duplicate") || errorText.includes("unique")))
+        ) {
+          friendlyError = `Pendaftaran ditolak: Nomor WhatsApp (${user.phone}) sudah terdaftar di database Supabase.`;
+        } else if (
+          errorText.includes("User_email_key") ||
+          (errorText.includes("email") && (errorText.includes("duplicate") || errorText.includes("unique")))
+        ) {
+          friendlyError = `Pendaftaran ditolak: Alamat email (${user.email}) sudah terdaftar di database Supabase.`;
+        } else {
+          friendlyError = `Pendaftaran ditolak: Data pengguna sudah terdaftar di database.`;
         }
         return { success: false, error: friendlyError };
       }

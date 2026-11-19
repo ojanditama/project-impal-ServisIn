@@ -183,6 +183,13 @@ export default function RegisterPage() {
         }, 1200);
       } else {
         setError(res.message);
+        if (res.message.includes("Nomor WhatsApp") || res.message.includes("telepon") || res.message.includes("phone")) {
+          setFieldErrors((prev) => ({ ...prev, phone: res.message }));
+        } else if (res.message.includes("email") || res.message.includes("Email")) {
+          setFieldErrors((prev) => ({ ...prev, email: res.message }));
+        } else if (res.message.includes("KTP")) {
+          setFieldErrors((prev) => ({ ...prev, ktpNumber: res.message }));
+        }
       }
     } catch (err: any) {
       setLoading(false);
