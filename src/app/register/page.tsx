@@ -8,14 +8,14 @@ import { AuthController } from "@/controllers/AuthController";
 export default function RegisterPage() {
   const router = useRouter();
   const [role, setRole] = useState<"Customer" | "Mechanic">("Customer");
-  const [name, setName] = useState("Fauzan Pratama");
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [vehicleType, setVehicleType] = useState("Mobil (MPV, SUV, Sedan, City Car)");
   const [mechanicSpec, setMechanicSpec] = useState("Mekanik Mobil BNSP Level III / IV");
-  const [ktpNumber, setKtpNumber] = useState("3174092801900002");
-  const [password, setPassword] = useState("rahasia123");
-  const [confirmPassword, setConfirmPassword] = useState("rahasia123");
+  const [ktpNumber, setKtpNumber] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [promoExpanded, setPromoExpanded] = useState(false);
   const [promoCode, setPromoCode] = useState("");
@@ -25,15 +25,95 @@ export default function RegisterPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [lang, setLang] = useState<"ID" | "EN">("ID");
 
+  // Field-level error validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Individual field validator
+  const validateField = (fieldName: string, value: string): string => {
+    switch (fieldName) {
+      case "name":
+        if (!value.trim()) return "Nama lengkap wajib diisi tidak boleh kosong.";
+        return "";
+      case "phone": {
+        const cleanDigits = value.replace(/[^0-9]/g, "");
+        if (!value.trim()) return "Nomor WhatsApp wajib diisi tidak boleh kosong.";
+        if (cleanDigits.length < 11) {
+          return `Nomor WhatsApp kurang dari 11 digit (saat ini ${cleanDigits.length} digit).`;
+        }
+        if (cleanDigits.length > 11) {
+          return `Nomor WhatsApp lebih dari 11 digit (saat ini ${cleanDigits.length} digit, maksimal 11 digit).`;
+        }
+        return "";
+      }
+      case "email":
+        if (!value.trim()) return "Alamat email wajib diisi tidak boleh kosong.";
+        if (!value.includes("@")) return "Alamat email tidak valid (harus mengandung karakter '@').";
+        return "";
+      case "ktpNumber":
+        if (role === "Mechanic") {
+          const cleanKtp = value.replace(/[^0-9]/g, "");
+          if (!value.trim()) return "Nomor KTP wajib diisi tidak boleh kosong.";
+          if (cleanKtp.length < 16) return `Nomor KTP kurang dari 16 digit (saat ini ${cleanKtp.length} digit).`;
+          if (cleanKtp.length > 16) return `Nomor KTP lebih dari 16 digit (saat ini ${cleanKtp.length} digit).`;
+        }
+        return "";
+      case "password":
+        if (!value) return "Kata sandi wajib diisi tidak boleh kosong.";
+        if (value.length < 6) return `Kata sandi kurang dari 6 karakter (saat ini ${value.length} karakter, minimal 6 karakter).`;
+        return "";
+      case "confirmPassword":
+        if (!value) return "Ulangi kata sandi wajib diisi tidak boleh kosong.";
+        if (value !== password) return "Konfirmasi kata sandi tidak cocok dengan kata sandi.";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  // Validate all fields
+  const validateAll = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    const nameErr = validateField("name", name);
+    if (nameErr) errs.name = nameErr;
+
+    const phoneErr = validateField("phone", phone);
+    if (phoneErr) errs.phone = phoneErr;
+
+    const emailErr = validateField("email", email);
+    if (emailErr) errs.email = emailErr;
+
+    if (role === "Mechanic") {
+      const ktpErr = validateField("ktpNumber", ktpNumber);
+      if (ktpErr) errs.ktpNumber = ktpErr;
+    }
+
+    const passErr = validateField("password", password);
+    if (passErr) errs.password = passErr;
+
+    const confErr = validateField("confirmPassword", confirmPassword);
+    if (confErr) errs.confirmPassword = confErr;
+
+    if (!agreeTerms) {
+      errs.agreeTerms = "Silakan setujui Syarat & Ketentuan serta Kebijakan Privasi.";
+    }
+
+    return errs;
+  };
+
   // Autofill random test user that won't conflict with Supabase
   const handleAutoFillTest = () => {
     const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
+    // Standard exactly 11 digits: 81 + 9 digits = 11 digits
     const generatedPhone = "81" + randomSuffix.toString().slice(0, 9);
     setName(role === "Customer" ? "Fauzan Pelanggan Baru" : "Fauzan Mekanik Mitra");
     setPhone(generatedPhone);
     setEmail(`user_${randomSuffix}@servisin.id`);
+    setKtpNumber("3174092801900002");
     setPassword("rahasia123");
     setConfirmPassword("rahasia123");
+    setAgreeTerms(true);
+    setFieldErrors({});
     setError("");
   };
 
@@ -42,20 +122,22 @@ export default function RegisterPage() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agreeTerms) {
-      setError("Silakan setujui Syarat & Ketentuan dan Kebijakan Privasi.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Konfirmasi kata sandi tidak cocok.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Kata sandi minimal 6 karakter.");
-      return;
-    }
-    if (!phone) {
-      setError("Nomor WhatsApp / telepon wajib diisi.");
+
+    const errs = validateAll();
+    setFieldErrors(errs);
+    setTouched({
+      name: true,
+      phone: true,
+      email: true,
+      ktpNumber: true,
+      password: true,
+      confirmPassword: true,
+      agreeTerms: true,
+    });
+
+    const errorKeys = Object.keys(errs);
+    if (errorKeys.length > 0) {
+      setError(errs[errorKeys[0]]);
       return;
     }
 
@@ -216,7 +298,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Registration Form */}
-      <form onSubmit={handleRegisterSubmit} className="mt-4 flex flex-col gap-3.5 pb-8">
+      <form noValidate onSubmit={handleRegisterSubmit} className="mt-4 flex flex-col gap-3.5 pb-8">
         {successMsg && (
           <div className="p-3.5 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed text-body-sm flex items-center gap-2 border border-tertiary shadow-sm">
             <span className="material-symbols-outlined text-tertiary">check_circle</span>
@@ -225,9 +307,9 @@ export default function RegisterPage() {
         )}
 
         {error && (
-          <div className="p-3 rounded-xl bg-error-container text-on-error-container text-body-sm flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-error-container text-on-error-container text-body-sm flex items-center gap-2 border border-error/30">
             <span className="material-symbols-outlined text-error">error</span>
-            <span>{error}</span>
+            <span className="font-bold">{error}</span>
           </div>
         )}
 
@@ -246,12 +328,33 @@ export default function RegisterPage() {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setName(val);
+                if (touched.name) {
+                  setFieldErrors((prev) => ({ ...prev, name: validateField("name", val) }));
+                }
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, name: true }));
+                setFieldErrors((prev) => ({ ...prev, name: validateField("name", name) }));
+              }}
               placeholder="Budi Pratama"
-              required
-              className="w-full h-12 pl-11 pr-4 bg-surface-container-low rounded-xl text-on-surface font-body-md placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary-container"
+              className={`w-full h-12 pl-11 pr-4 rounded-xl text-on-surface font-body-md placeholder:text-on-surface-variant/50 focus:outline-none transition-all ${
+                touched.name && fieldErrors.name
+                  ? "bg-error-container/10 border border-error ring-1 ring-error"
+                  : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+              }`}
             />
           </div>
+          {touched.name && fieldErrors.name && (
+            <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                error
+              </span>
+              {fieldErrors.name}
+            </span>
+          )}
         </div>
 
         {/* WhatsApp Phone */}
@@ -262,7 +365,7 @@ export default function RegisterPage() {
               <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
                 check_circle
               </span>{" "}
-              OTP Instan
+              Wajib 11 Digit
             </span>
           </div>
           <div className="flex gap-2">
@@ -274,10 +377,23 @@ export default function RegisterPage() {
               <input
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="81298453210"
-                required
-                className="w-full h-12 px-3.5 pr-10 bg-surface-container-low rounded-xl text-on-surface font-body-md placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary-container"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPhone(val);
+                  if (touched.phone) {
+                    setFieldErrors((prev) => ({ ...prev, phone: validateField("phone", val) }));
+                  }
+                }}
+                onBlur={() => {
+                  setTouched((prev) => ({ ...prev, phone: true }));
+                  setFieldErrors((prev) => ({ ...prev, phone: validateField("phone", phone) }));
+                }}
+                placeholder="81298453210 (11 digit)"
+                className={`w-full h-12 px-3.5 pr-10 rounded-xl text-on-surface font-body-md placeholder:text-on-surface-variant/50 focus:outline-none transition-all ${
+                  touched.phone && fieldErrors.phone
+                    ? "bg-error-container/10 border border-error ring-1 ring-error"
+                    : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+                }`}
               />
               <span className="absolute right-3 text-tertiary">
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -286,13 +402,21 @@ export default function RegisterPage() {
               </span>
             </div>
           </div>
+          {touched.phone && fieldErrors.phone && (
+            <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                error
+              </span>
+              {fieldErrors.phone}
+            </span>
+          )}
         </div>
 
         {/* Alamat Email */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <label className="font-label-md text-label-md text-on-surface">Alamat Email</label>
-            <span className="text-on-surface-variant font-label-sm text-label-sm">Opsional (e-faktur garansi)</span>
+            <span className="text-secondary font-label-sm text-label-sm">Wajib Mengandung @</span>
           </div>
           <div className="relative flex items-center">
             <span className="absolute left-3.5 text-on-surface-variant pointer-events-none">
@@ -303,11 +427,33 @@ export default function RegisterPage() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setEmail(val);
+                if (touched.email) {
+                  setFieldErrors((prev) => ({ ...prev, email: validateField("email", val) }));
+                }
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, email: true }));
+                setFieldErrors((prev) => ({ ...prev, email: validateField("email", email) }));
+              }}
               placeholder="budi.pratama@email.com"
-              className="w-full h-12 pl-11 pr-4 bg-surface-container-low rounded-xl text-on-surface font-body-md placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary-container"
+              className={`w-full h-12 pl-11 pr-4 rounded-xl text-on-surface font-body-md placeholder:text-on-surface-variant/50 focus:outline-none transition-all ${
+                touched.email && fieldErrors.email
+                  ? "bg-error-container/10 border border-error ring-1 ring-error"
+                  : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+              }`}
             />
           </div>
+          {touched.email && fieldErrors.email && (
+            <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                error
+              </span>
+              {fieldErrors.email}
+            </span>
+          )}
         </div>
 
         {/* Role-specific fields */}
@@ -344,7 +490,7 @@ export default function RegisterPage() {
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label className="font-label-md text-label-md text-on-surface">Nomor KTP (e-KTP)</label>
-                <span className="text-secondary font-label-sm text-label-sm font-semibold">Validasi Dukcapil</span>
+                <span className="text-secondary font-label-sm text-label-sm font-semibold">16 Digit Valid</span>
               </div>
               <div className="relative flex items-center">
                 <span className="absolute left-3.5 text-on-surface-variant pointer-events-none">
@@ -355,12 +501,33 @@ export default function RegisterPage() {
                 <input
                   type="text"
                   value={ktpNumber}
-                  onChange={(e) => setKtpNumber(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setKtpNumber(val);
+                    if (touched.ktpNumber) {
+                      setFieldErrors((prev) => ({ ...prev, ktpNumber: validateField("ktpNumber", val) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    setTouched((prev) => ({ ...prev, ktpNumber: true }));
+                    setFieldErrors((prev) => ({ ...prev, ktpNumber: validateField("ktpNumber", ktpNumber) }));
+                  }}
                   placeholder="3174xxxxxxxxxxxx"
-                  required
-                  className="w-full h-12 pl-11 pr-4 bg-surface-container-low rounded-xl text-on-surface font-mono text-body-md focus:outline-none focus:ring-2 focus:ring-primary-container"
+                  className={`w-full h-12 pl-11 pr-4 rounded-xl text-on-surface font-mono text-body-md focus:outline-none transition-all ${
+                    touched.ktpNumber && fieldErrors.ktpNumber
+                      ? "bg-error-container/10 border border-error ring-1 ring-error"
+                      : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+                  }`}
                 />
               </div>
+              {touched.ktpNumber && fieldErrors.ktpNumber && (
+                <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                    error
+                  </span>
+                  {fieldErrors.ktpNumber}
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -401,10 +568,23 @@ export default function RegisterPage() {
             <input
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••••••"
-              required
-              className="w-full h-12 pl-11 pr-11 bg-surface-container-low rounded-xl text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-primary-container"
+              onChange={(e) => {
+                const val = e.target.value;
+                setPassword(val);
+                if (touched.password) {
+                  setFieldErrors((prev) => ({ ...prev, password: validateField("password", val) }));
+                }
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, password: true }));
+                setFieldErrors((prev) => ({ ...prev, password: validateField("password", password) }));
+              }}
+              placeholder="Minimal 6 karakter"
+              className={`w-full h-12 pl-11 pr-11 rounded-xl text-on-surface font-body-md focus:outline-none transition-all ${
+                touched.password && fieldErrors.password
+                  ? "bg-error-container/10 border border-error ring-1 ring-error"
+                  : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+              }`}
             />
             <button
               type="button"
@@ -416,21 +596,62 @@ export default function RegisterPage() {
               </span>
             </button>
           </div>
+          {touched.password && fieldErrors.password && (
+            <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                error
+              </span>
+              {fieldErrors.password}
+            </span>
+          )}
+
           {/* Password strength meter */}
           <div className="flex items-center justify-between mt-1">
             <span className="font-label-sm text-label-sm text-on-surface-variant">Kekuatan Sandi</span>
-            <span className="font-label-sm text-label-sm text-tertiary flex items-center gap-1 font-semibold">
+            <span
+              className={`font-label-sm text-label-sm flex items-center gap-1 font-semibold ${
+                password.length === 0
+                  ? "text-on-surface-variant"
+                  : password.length < 6
+                  ? "text-error"
+                  : password.length < 8
+                  ? "text-amber-500"
+                  : "text-tertiary"
+              }`}
+            >
               <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
                 shield
               </span>{" "}
-              Sangat Kuat
+              {password.length === 0
+                ? "Belum diisi"
+                : password.length < 6
+                ? "Kurang dari 6 karakter"
+                : password.length < 8
+                ? "Cukup Baik"
+                : "Sangat Kuat"}
             </span>
           </div>
           <div className="grid grid-cols-4 gap-1.5 mt-0.5">
-            <div className="h-1.5 bg-tertiary rounded-full"></div>
-            <div className="h-1.5 bg-tertiary rounded-full"></div>
-            <div className="h-1.5 bg-tertiary rounded-full"></div>
-            <div className="h-1.5 bg-tertiary rounded-full"></div>
+            <div
+              className={`h-1.5 rounded-full transition-all ${
+                password.length > 0 ? (password.length < 6 ? "bg-error" : "bg-tertiary") : "bg-surface-container-high"
+              }`}
+            ></div>
+            <div
+              className={`h-1.5 rounded-full transition-all ${
+                password.length >= 6 ? "bg-tertiary" : "bg-surface-container-high"
+              }`}
+            ></div>
+            <div
+              className={`h-1.5 rounded-full transition-all ${
+                password.length >= 8 ? "bg-tertiary" : "bg-surface-container-high"
+              }`}
+            ></div>
+            <div
+              className={`h-1.5 rounded-full transition-all ${
+                password.length >= 10 ? "bg-tertiary" : "bg-surface-container-high"
+              }`}
+            ></div>
           </div>
         </div>
 
@@ -446,10 +667,23 @@ export default function RegisterPage() {
             <input
               type={showPassword ? "text" : "password"}
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••••••••••"
-              required
-              className="w-full h-12 pl-11 pr-11 bg-surface-container-low rounded-xl text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-primary-container"
+              onChange={(e) => {
+                const val = e.target.value;
+                setConfirmPassword(val);
+                if (touched.confirmPassword) {
+                  setFieldErrors((prev) => ({ ...prev, confirmPassword: validateField("confirmPassword", val) }));
+                }
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, confirmPassword: true }));
+                setFieldErrors((prev) => ({ ...prev, confirmPassword: validateField("confirmPassword", confirmPassword) }));
+              }}
+              placeholder="Ulangi kata sandi di atas"
+              className={`w-full h-12 pl-11 pr-11 rounded-xl text-on-surface font-body-md focus:outline-none transition-all ${
+                touched.confirmPassword && fieldErrors.confirmPassword
+                  ? "bg-error-container/10 border border-error ring-1 ring-error"
+                  : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+              }`}
             />
             {confirmPassword && confirmPassword === password && (
               <span className="absolute right-3 text-tertiary flex items-center">
@@ -459,6 +693,14 @@ export default function RegisterPage() {
               </span>
             )}
           </div>
+          {touched.confirmPassword && fieldErrors.confirmPassword && (
+            <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                error
+              </span>
+              {fieldErrors.confirmPassword}
+            </span>
+          )}
         </div>
 
         {/* Promo Accordion */}
@@ -510,25 +752,43 @@ export default function RegisterPage() {
         )}
 
         {/* Terms Checkbox */}
-        <label className="flex items-start gap-2.5 cursor-pointer select-none pt-1">
-          <input
-            type="checkbox"
-            checked={agreeTerms}
-            onChange={(e) => setAgreeTerms(e.target.checked)}
-            className="w-5 h-5 rounded text-primary-container accent-primary-container mt-0.5"
-          />
-          <span className="font-body-sm text-body-sm text-on-surface-variant leading-tight">
-            Saya menyetujui{" "}
-            <a href="#" className="text-primary font-semibold underline">
-              Syarat &amp; Ketentuan
-            </a>{" "}
-            serta{" "}
-            <a href="#" className="text-primary font-semibold underline">
-              Kebijakan Privasi
-            </a>{" "}
-            ServisIn.
-          </span>
-        </label>
+        <div className="flex flex-col gap-1">
+          <label className="flex items-start gap-2.5 cursor-pointer select-none pt-1">
+            <input
+              type="checkbox"
+              checked={agreeTerms}
+              onChange={(e) => {
+                setAgreeTerms(e.target.checked);
+                if (touched.agreeTerms) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    agreeTerms: e.target.checked ? "" : "Silakan setujui Syarat & Ketentuan dan Kebijakan Privasi.",
+                  }));
+                }
+              }}
+              className="w-5 h-5 rounded text-primary-container accent-primary-container mt-0.5"
+            />
+            <span className="font-body-sm text-body-sm text-on-surface-variant leading-tight">
+              Saya menyetujui{" "}
+              <a href="#" className="text-primary font-semibold underline">
+                Syarat &amp; Ketentuan
+              </a>{" "}
+              serta{" "}
+              <a href="#" className="text-primary font-semibold underline">
+                Kebijakan Privasi
+              </a>{" "}
+              ServisIn.
+            </span>
+          </label>
+          {touched.agreeTerms && fieldErrors.agreeTerms && (
+            <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                error
+              </span>
+              {fieldErrors.agreeTerms}
+            </span>
+          )}
+        </div>
 
         {/* Submit Button */}
         <button

@@ -10,11 +10,11 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const registeredParam = searchParams.get("registered") === "1";
   const initialRole = (searchParams.get("role") as "Customer" | "Mechanic" | "Admin") || "Customer";
-  const initialIdentifier = searchParams.get("identifier") || "081298453210";
+  const initialIdentifier = searchParams.get("identifier") || "";
 
   const [role, setRole] = useState<"Customer" | "Mechanic" | "Admin">(initialRole);
   const [identifier, setIdentifier] = useState(initialIdentifier);
-  const [password, setPassword] = useState("password123");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
@@ -23,10 +23,13 @@ function LoginContent() {
   );
   const [loading, setLoading] = useState(false);
 
+  // Field errors & touched states
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
-    if (initialIdentifier && initialIdentifier !== "081298453210") {
+    if (initialIdentifier) {
       setIdentifier(initialIdentifier);
-      setPassword("rahasia12345");
     }
   }, [initialIdentifier]);
 
@@ -36,24 +39,86 @@ function LoginContent() {
     Admin: "Akses panel monitoring transaksi makro & verifikasi mitra teknisi.",
   };
 
+  const validateLoginField = (fieldName: string, value: string): string => {
+    switch (fieldName) {
+      case "identifier": {
+        const val = value.trim();
+        if (!val) {
+          return role === "Admin"
+            ? "Email administrator wajib diisi tidak boleh kosong."
+            : "Email atau nomor WhatsApp wajib diisi tidak boleh kosong.";
+        }
+        // If it looks like a phone number (only digits, spaces, plus, dashes)
+        const isDigitsOnly = /^[0-9+\s-]+$/.test(val);
+        const cleanDigits = val.replace(/[^0-9]/g, "");
+        if (isDigitsOnly && !val.includes("@")) {
+          if (cleanDigits.length < 11) {
+            return `Nomor WhatsApp kurang dari 11 digit (saat ini ${cleanDigits.length} digit).`;
+          }
+          if (cleanDigits.length > 11) {
+            return `Nomor WhatsApp lebih dari 11 digit (saat ini ${cleanDigits.length} digit, maksimal 11 digit).`;
+          }
+        } else {
+          // It's treated as an email
+          if (!val.includes("@")) {
+            return "Alamat email tidak valid (harus mengandung karakter '@').";
+          }
+        }
+        return "";
+      }
+      case "password":
+        if (!value) {
+          return "Kata sandi wajib diisi tidak boleh kosong.";
+        }
+        if (value.length < 6) {
+          return `Kata sandi kurang dari 6 karakter (saat ini ${value.length} karakter, minimal 6 karakter).`;
+        }
+        return "";
+      default:
+        return "";
+    }
+  };
+
   const handleRoleChange = (selected: "Customer" | "Mechanic" | "Admin") => {
     setRole(selected);
     setError("");
+    setFieldErrors({});
     setSuccessMsg("");
-    if (selected === "Customer") {
+  };
+
+  const handleAutoFillDemo = (targetRole: "Customer" | "Mechanic" | "Admin") => {
+    setRole(targetRole);
+    if (targetRole === "Customer") {
       setIdentifier("081298453210");
       setPassword("password123");
-    } else if (selected === "Mechanic") {
+    } else if (targetRole === "Mechanic") {
       setIdentifier("081377889900");
       setPassword("password123");
     } else {
       setIdentifier("admin@servisin.id");
       setPassword("admin123");
     }
+    setFieldErrors({});
+    setError("");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const identErr = validateLoginField("identifier", identifier);
+    const passErr = validateLoginField("password", password);
+    const errs: Record<string, string> = {};
+    if (identErr) errs.identifier = identErr;
+    if (passErr) errs.password = passErr;
+
+    setFieldErrors(errs);
+    setTouched({ identifier: true, password: true });
+
+    if (identErr || passErr) {
+      setError(identErr || passErr);
+      return;
+    }
+
     setLoading(true);
     setError("");
     setSuccessMsg("");
@@ -178,20 +243,33 @@ function LoginContent() {
         {/* Main Card Form */}
         <div className="px-1 mt-3">
           <form
+            noValidate
             onSubmit={handleLogin}
             className="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-4 border border-surface-container-high/40"
           >
+            {/* Quick Demo Test Bar */}
+            <div className="flex items-center justify-between p-2 rounded-xl bg-surface-container-low text-xs border border-surface-container-high/60">
+              <span className="text-on-surface-variant font-medium">Uji Coba Cepat:</span>
+              <button
+                type="button"
+                onClick={() => handleAutoFillDemo(role)}
+                className="px-2.5 py-1 bg-surface-container-lowest text-primary font-bold rounded-lg border border-primary/20 hover:bg-primary-fixed/40 transition-colors"
+              >
+                Isi Otomatis Akun {role}
+              </button>
+            </div>
+
             {successMsg && (
               <div className="p-3 rounded-xl bg-emerald-100 text-emerald-900 text-body-sm flex items-center gap-2 border border-emerald-300">
                 <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                <span>{successMsg}</span>
+                <span className="font-medium">{successMsg}</span>
               </div>
             )}
 
             {error && (
-              <div className="p-3 rounded-xl bg-error-container text-on-error-container text-body-sm flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-error-container text-on-error-container text-body-sm flex items-center gap-2 border border-error/30">
                 <span className="material-symbols-outlined text-error">error</span>
-                <span>{error}</span>
+                <span className="font-bold">{error}</span>
               </div>
             )}
 
@@ -221,12 +299,33 @@ function LoginContent() {
                   id="identifier-input"
                   type="text"
                   value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder={role === "Admin" ? "admin@servisin.id" : "contoh@domain.com atau 0812xxxx"}
-                  className="w-full h-12 pl-11 pr-4 bg-surface-container-low rounded-xl text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary-container transition-colors"
-                  required
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setIdentifier(val);
+                    if (touched.identifier) {
+                      setFieldErrors((prev) => ({ ...prev, identifier: validateLoginField("identifier", val) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    setTouched((prev) => ({ ...prev, identifier: true }));
+                    setFieldErrors((prev) => ({ ...prev, identifier: validateLoginField("identifier", identifier) }));
+                  }}
+                  placeholder={role === "Admin" ? "admin@servisin.id" : "081298453210 atau contoh@email.com"}
+                  className={`w-full h-12 pl-11 pr-4 rounded-xl text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none transition-all ${
+                    touched.identifier && fieldErrors.identifier
+                      ? "bg-error-container/10 border border-error ring-1 ring-error"
+                      : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+                  }`}
                 />
               </div>
+              {touched.identifier && fieldErrors.identifier && (
+                <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                    error
+                  </span>
+                  {fieldErrors.identifier}
+                </span>
+              )}
             </div>
 
             {/* Input: Password */}
@@ -244,10 +343,23 @@ function LoginContent() {
                   id="password-input"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Masukkan kata sandi akun"
-                  className="w-full h-12 pl-11 pr-12 bg-surface-container-low rounded-xl text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary-container transition-colors"
-                  required
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPassword(val);
+                    if (touched.password) {
+                      setFieldErrors((prev) => ({ ...prev, password: validateLoginField("password", val) }));
+                    }
+                  }}
+                  onBlur={() => {
+                    setTouched((prev) => ({ ...prev, password: true }));
+                    setFieldErrors((prev) => ({ ...prev, password: validateLoginField("password", password) }));
+                  }}
+                  placeholder="Masukkan kata sandi (minimal 6 karakter)"
+                  className={`w-full h-12 pl-11 pr-12 rounded-xl text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none transition-all ${
+                    touched.password && fieldErrors.password
+                      ? "bg-error-container/10 border border-error ring-1 ring-error"
+                      : "bg-surface-container-low focus:ring-2 focus:ring-primary-container"
+                  }`}
                 />
                 <button
                   type="button"
@@ -260,6 +372,14 @@ function LoginContent() {
                   </span>
                 </button>
               </div>
+              {touched.password && fieldErrors.password && (
+                <span className="text-[11px] text-error font-semibold flex items-center gap-1 mt-0.5">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                    error
+                  </span>
+                  {fieldErrors.password}
+                </span>
+              )}
             </div>
 
             {/* Remember Me & Forgot Password */}
